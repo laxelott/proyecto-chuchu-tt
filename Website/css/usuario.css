@@ -1,0 +1,34 @@
+@import url("base.css");
+@import url("navbar.css");
+
+body {
+    section {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 3rem;
+        article.title-section {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-evenly;
+            background-color: var(--primary-background-color);
+            padding: 6.6rem;
+            div.titles {
+                h1 {
+                    font-size: 4.4rem;
+                    &.grey {
+                        color: var(--principal-text);
+                    }
+                    &.green {
+                        color: var(--principal-green);
+                    }
+                }
+                span {
+                    font-size: 1.2rem;
+                    color: var(--secondary-text);
+                }
+            }
+        }
+    }
+}

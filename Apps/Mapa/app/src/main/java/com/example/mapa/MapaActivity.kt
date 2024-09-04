@@ -1,14 +1,25 @@
 package com.example.mapa
 
 import android.Manifest
+import android.content.ContentValues.TAG
 import android.content.pm.PackageManager
 import android.location.Location
 import android.os.Bundle
+import android.util.Log
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.widget.Button
+import android.widget.ImageView
+import android.widget.SearchView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.room.util.query
 import com.example.mapa.databinding.ActivityMapaTransporteBinding
+import com.google.android.gms.common.api.ApiException
+import com.google.android.gms.common.api.Status
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.CameraUpdateFactory
@@ -20,12 +31,23 @@ import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MapStyleOptions
 import com.google.android.gms.maps.model.MarkerOptions
+import com.google.android.libraries.places.api.Places
+import com.google.android.libraries.places.api.model.AutocompleteSessionToken
+import com.google.android.libraries.places.api.model.Place
+import com.google.android.libraries.places.api.model.PlaceTypes
+import com.google.android.libraries.places.api.model.RectangularBounds
+import com.google.android.libraries.places.api.net.FindAutocompletePredictionsRequest
+import com.google.android.libraries.places.api.net.FindAutocompletePredictionsResponse
+import com.google.android.libraries.places.api.net.PlacesClient
+import com.google.android.libraries.places.widget.AutocompleteSupportFragment
+import com.google.android.libraries.places.widget.listener.PlaceSelectionListener
 
 
-class MapaActivity : AppCompatActivity(), OnMapReadyCallback, OnMyLocationButtonClickListener {
+class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private lateinit var mMap: GoogleMap
     private lateinit var binding: ActivityMapaTransporteBinding
+    private lateinit var btnLocation: ImageView
     companion object{
         const val REQUEST_CODE_LOCATION = 0
     }
@@ -33,6 +55,7 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback, OnMyLocationButton
     private lateinit var lastLocation: Location
 
     private var busStops: ArrayList<TransportInformationActivity.BusStop>? = null
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -50,6 +73,8 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback, OnMyLocationButton
          * Getting all the bus stations of the line selected
          */
         busStops = intent.getSerializableExtra("busStops") as ArrayList<TransportInformationActivity.BusStop>?
+        btnLocation = findViewById(R.id.location_button)
+
 
     }
 
@@ -65,9 +90,15 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback, OnMyLocationButton
     override fun onMapReady(googleMap: GoogleMap) {
         mMap = googleMap
         mMap.setMapStyle(MapStyleOptions.loadRawResourceStyle(this,R.raw.custom_map_style))
+        mMap.uiSettings.isMyLocationButtonEnabled = false
+        mMap.uiSettings.isMapToolbarEnabled = false
         mMap.uiSettings.isZoomControlsEnabled = true
 
         enableLocation()
+
+        btnLocation.setOnClickListener {
+            mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(lastLocation.latitude, lastLocation.longitude), 16f))
+        }
 
         //Creating the markers
         if (busStops != null) {
@@ -104,7 +135,7 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback, OnMyLocationButton
                 if (location != null){
                     lastLocation = location
                     val currentLatLong = LatLng(location.latitude, location.longitude)
-                    mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLatLong, 12f))
+                    mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLatLong, 16f))
                 }
             }
 
@@ -158,11 +189,6 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback, OnMyLocationButton
             Toast.makeText(this, "Ve a ajustes para aceptar los permisos de localizacion", Toast.LENGTH_SHORT).show()
         }
     }
-
-    override fun onMyLocationButtonClick(): Boolean {
-        return false
-    }
-
 
 
 
