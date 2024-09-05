@@ -45,18 +45,14 @@
             android:text="Selecciona la línea que vas a usar"
             android:textSize="14sp" />
 
-        <ScrollView
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rv_lineas"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:layout_marginTop="34dp">
-            <LinearLayout
-                android:id="@+id/linearLayoutAllLines"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:gravity="center|top"
-                android:orientation="vertical">
-            </LinearLayout>
-        </ScrollView>
+            android:layout_height="wrap_content"
+            tools:listitem="@layout/item_rv_lines_info"
+            android:layout_marginTop="0dp"
+            android:elevation="10dp"
+            android:gravity="center|center_horizontal" />
 
     </LinearLayout>
 

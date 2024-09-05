@@ -5,9 +5,16 @@ import android.content.pm.PackageManager
 import android.location.Location
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
+import android.util.Log
+import android.view.View
+import android.widget.ImageView
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.view.isVisible
+import androidx.recyclerview.widget.LinearLayoutManager
 
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
@@ -18,15 +25,19 @@ import com.google.android.gms.maps.model.MarkerOptions
 import com.example.pasajero.databinding.ActivityMapsBinding
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
-import com.google.android.gms.maps.model.BitmapDescriptor
+import com.google.android.gms.maps.GoogleMap.OnMarkerClickListener
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.MapStyleOptions
-import com.google.android.libraries.places.api.net.PlacesClient
+import com.google.android.gms.maps.model.Marker
 
 class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private lateinit var mMap: GoogleMap
     private lateinit var binding: ActivityMapsBinding
+    private lateinit var btnLocation: ImageView
+    private lateinit var adapter: BusStopAdapter
+    private lateinit var stationsButton: ImageView
+    private var busStops = ArrayList<BusStop>()
 
     //Variables to ask for the location permission
     companion object{
@@ -35,11 +46,6 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var fusedLocationProviderClient: FusedLocationProviderClient
     private lateinit var lastLocation: Location
     private lateinit var currentLocation: LatLng
-
-    // The entry point to the Places API.
-    private lateinit var placesClient: PlacesClient
-
-    private var busStops: ArrayList<SelectedTransportActivity.BusStop>? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -52,16 +58,35 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
             .findFragmentById(R.id.map) as SupportMapFragment
         mapFragment.getMapAsync(this)
 
-
         // Construct a FusedLocationProviderClient.
         fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this)
-
 
         /**
          * Getting all the bus stations of the line selected
          */
-        busStops = intent.getSerializableExtra("busStops") as ArrayList<SelectedTransportActivity.BusStop>?
+        busStops = intent.getSerializableExtra("busStops") as ArrayList<BusStop>
+        btnLocation = findViewById(R.id.location_button)
+
     }
+
+    fun setupRecyclerView(mMap: GoogleMap) {
+        binding.rvEstaciones.layoutManager = LinearLayoutManager(this)
+        adapter = BusStopAdapter(busStops,mMap,binding)
+        binding.rvEstaciones.adapter = adapter
+    }
+
+    fun filtrar (texto: String) {
+        var listaFiltrada = ArrayList<BusStop>()
+
+        busStops.forEach {
+            if (it.name.toLowerCase().contains(texto.lowercase())) {
+                listaFiltrada.add(it)
+            }
+        }
+
+        adapter.filtrar(listaFiltrada)
+    }
+
 
     /**
      * Manipulates the map once available.
@@ -74,21 +99,61 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
      */
     override fun onMapReady(googleMap: GoogleMap) {
         mMap = googleMap
-
-
         mMap.setMapStyle(MapStyleOptions.loadRawResourceStyle(this,R.raw.custom_map_style))
+        mMap.uiSettings.isMyLocationButtonEnabled = false
+        mMap.uiSettings.isMapToolbarEnabled = false
         mMap.uiSettings.isZoomControlsEnabled = true
 
-        //enableLocation()
+        enableLocation()
+
+        //Log.d("MapsActivity", currentLocation.toString())
+
+        btnLocation.setOnClickListener{
+            mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLocation, 16f))
+        }
 
         //Creating the markers
-        if (busStops != null) {
-            for ((i, busStop) in busStops!!.withIndex())
-            {
-                createMarker(busStop.latitude, busStop.longitude, busStop.name)
+        for ((i, busStop) in busStops.withIndex())
+        {
+            createMarker(busStop.latitude, busStop.longitude, busStop.name)
+        }
+
+
+        setupRecyclerView(mMap)
+
+        // Show and hide all the stations
+        btnLocation = findViewById(R.id.location_button)
+        stationsButton = findViewById(R.id.showStations)
+
+        stationsButton.setOnClickListener {
+            if (binding.rvEstaciones.isVisible) binding.rvEstaciones.visibility = View.GONE else binding.rvEstaciones.visibility = View.VISIBLE
+        }
+
+        binding.searchBar.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus) {
+                // Mostrar el RecyclerView
+                binding.rvEstaciones.visibility = View.VISIBLE
             }
         }
 
+        binding.searchBar.setOnClickListener {
+            binding.rvEstaciones.visibility = View.VISIBLE
+        }
+
+        binding.searchBar.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(p0: CharSequence?, p1: Int, p2: Int, p3: Int) {
+                binding.rvEstaciones.visibility = View.VISIBLE
+            }
+
+            override fun onTextChanged(p0: CharSequence?, p1: Int, p2: Int, p3: Int) {
+
+            }
+
+            override fun afterTextChanged(p0: Editable?) {
+                filtrar(p0.toString())
+            }
+
+        })
 
 
     }
@@ -121,9 +186,6 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
                     mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLocation, 16f))
                 }
             }
-
-            //Get the location button
-
         }else{
             requestLocationPermission()
         }
@@ -163,14 +225,5 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         }
     }
 
-    //Metodo para comprobar que los permisos siguen activos despues de que el usuario dejo la aplicacion en background
-    override fun onResumeFragments() {
-        super.onResumeFragments()
-        if(!::mMap.isInitialized) return
-        if (!isLocationPermissionGranted()){
-            mMap.isMyLocationEnabled = false
-            Toast.makeText(this, "Ve a ajustes para aceptar los permisos de localizacion", Toast.LENGTH_SHORT).show()
-        }
-    }
 
 }
