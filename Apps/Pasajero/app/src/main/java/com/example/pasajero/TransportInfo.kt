@@ -1,4 +1,4 @@
-package com.example.mapa
+package com.example.pasajero
 
 data class TransportInfo (
     val name: String,
