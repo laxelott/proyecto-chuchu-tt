@@ -21,6 +21,7 @@ CREATE TABLE parada (
     nombre VARCHAR(200),
     coordsX DOUBLE,
     coordsY DOUBLE,
+    orden INT NOT NULL,
 
     FOREIGN KEY (idRuta) REFERENCES ruta(idRuta)
 );
