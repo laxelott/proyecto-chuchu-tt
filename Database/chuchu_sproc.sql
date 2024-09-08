@@ -1,6 +1,21 @@
 DELIMITER $$
 
 -- -----------------------------------------------------------------------------
+  -- testData
+-- -----------------------------------------------------------------------------
+DROP PROCEDURE IF EXISTS testData$$
+CREATE PROCEDURE testData()
+BEGIN
+
+    IF (SELECT COUNT(*) FROM user WHERE idUser = 0) > 0 THEN
+        SELECT CONCAT(name, ' (', curp, '), ', email) FROM user WHERE idUser = 0;
+    ELSE
+        SELECT 'Funcionando, pero no se encuentra el usuario :c';
+    END IF;
+
+END$$
+
+-- -----------------------------------------------------------------------------
   -- authorizeUser
 -- -----------------------------------------------------------------------------
 DROP PROCEDURE IF EXISTS authorizeUser$$
@@ -29,10 +44,10 @@ BEGIN
 
     DROP TABLE IF EXISTS temp_StopsInLine;
     CREATE TEMPORARY TABLE temp_StopsInLine(
-        idStop,
-        name,
-        coordsX,
-        coordsY
+        idStop INT,
+        name VARCHAR(200),
+        coordsX DOUBLE,
+        coordsY DOUBLE
     );
 
     -- Selecciona la única parada no referenciada
@@ -68,7 +83,6 @@ END$$
 -- -----------------------------------------------------------------------------
 DROP PROCEDURE IF EXISTS upsertUser$$
 CREATE PROCEDURE upsertUser(
-    pIdUser INT,
     pIdUserType INT,
     pName VARCHAR(200),
     pPassword VARCHAR(200),
@@ -91,7 +105,7 @@ BEGIN
         SET newSalt = MD5(RAND());
     END WHILE;
 
-    IF (SELECT COUNT(*) FROM user WHERE idUser = pIdUser) > 0 THEN
+    IF (SELECT COUNT(*) FROM user WHERE curp = pCurp) > 0 THEN
         -- update
         UPDATE user SET
             idUserType = pIdUserType,
@@ -100,30 +114,15 @@ BEGIN
             password = pPassword,
             salt = newSalt,
             phone = pPhone,
-            email = pEmail,
-            curp = pCurp
-        WHERE idUser = pIdUser;
-        SELECT pIdUser;
+            email = pEmail
+        WHERE curp = pCurp;
+        SELECT idUser FROM user WHERE curp = pCurp;
     ELSE 
         -- insert
         INSERT INTO user(
-            idUserType,
-            name,
-            username,
-            password,
-            salt,
-            phone,
-            email,
-            curp
+            idUserType, name, username, password, salt, phone, email, curp
         ) VALUES (
-            pIdUserType,
-            pName,
-            newUsername,
-            pPassword,
-            newSalt,
-            pPhone,
-            pEmail,
-            pCurp
+            pIdUserType, pName, newUsername, pPassword, newSalt, pPhone, pEmail, pCurp
         );
         SELECT LAST_INSERT_ID();
     END IF;
@@ -146,7 +145,7 @@ BEGIN
 
     DECLARE newIdNext INT;
 
-    IF (SELECT COUNT(*) FROM stop WHERE idStop = pIdLine) > 0 THEN
+    IF (SELECT COUNT(*) FROM stop WHERE idStop = pIdStop) > 0 THEN
         -- update
         -- remove stop from chain
         UPDATE stop SET
@@ -164,17 +163,9 @@ BEGIN
     ELSE 
         -- insert
         INSERT INTO stop(
-            idLine,
-            name,
-            coordsX,
-            coordsY,
-            idNext
+            idLine, name, coordsX, coordsY, idNext
         ) VALUES (
-            pIdLine,
-            pName,
-            pCoordsX,
-            pCorodsY,
-            -1
+            pIdLine, pName, pCoordsX, pCorodsY, -1
         );
 
         SELECT LAST_INSERT_ID() INTO newIdNext;
@@ -182,7 +173,7 @@ BEGIN
 
     -- link into chain
     UPDATE stop SET
-        idNext = newIdStop
+        idNext = newIdNext
     WHERE idNext = pIdNext;
     
     UPDATE stop SET
@@ -191,4 +182,35 @@ BEGIN
 
     SELECT newIdNext;
 
+END$$
+
+-- -----------------------------------------------------------------------------
+  -- upsertLine
+-- -----------------------------------------------------------------------------
+DROP PROCEDURE IF EXISTS upsertLine$$
+CREATE PROCEDURE upsertLine(
+    pIdLine INT,
+    pIdTransportation INT,
+    pName VARCHAR(200),
+    pDescription VARCHAR(200)
+)
+BEGIN
+
+    IF (SELECT COUNT(*) FROM line WHERE idLine = pIdLine) > 0 THEN
+        -- update
+        UPDATE line SET
+            idTransportation = pIdTransportation,
+            name = pName,
+            description = pDescription
+        WHERE idLine = pIdLine;
+        SELECT pIdLine;
+    ELSE
+        -- insert
+        INSERT INTO line(
+            idTransportation, name, description
+        ) VALUES (
+            pIdTransportation, pName, pDescription
+        );
+        SELECT LAST_INSERT_ID();
+    END IF;
 END$$

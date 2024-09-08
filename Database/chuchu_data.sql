@@ -7,6 +7,11 @@ DROP PROCEDURE IF EXISTS insertData$$
 CREATE PROCEDURE insertData()
 BEGIN
 
+    IF (SELECT COUNT(*) FROM userType) = 0 THEN
+        INSERT INTO userType VALUES(0, "Conductor");
+        INSERT INTO userType VALUES(1, "Administrador");
+    END IF;
+
     CALL upsertUser(
         0,
         'Juan Gómez',
@@ -22,14 +27,19 @@ BEGIN
         );
     END IF;
 
-    IF (SELECT COUNT(*) FROM line WHERE idLine = 0) = 0 THEN
-        INSERT INTO line(0, 0, 'Linea 8', 'Circuito Politécnico');
+    IF (SELECT COUNT(*) FROM line WHERE name = 'Linea 8' AND idLine = 0) = 0 THEN
+        DELETE FROM line WHERE idLine = 0;
+        DELETE FROM line WHERE name = 'Linea 8';
+        INSERT INTO line(
+            idLine, idTransportation, name, description
+        ) VALUES (
+            0, 0, 'Linea 8', 'Circuito Politécnico'
+        );
+        UPDATE line SET idLine = 0 WHERE name = 'Linea 8';
     END IF;
 
-    IF (SELECT COUNT(*) FROM stop WHERE idLine = 0) = 0 THEN
-        -- TODO insert test stops (from last to first)
-        CALL upsertStop(0, 'paradaFinal', 0, 0, NULL);
-    END IF;
+    -- TODO insert test stops (from last to first)
+    CALL upsertStop(0, 0, 'paradaFinal', 0, 0, NULL);
 
 END$$
 
