@@ -1,6 +1,7 @@
 package com.example.pasajero
 
 import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
 import android.location.Location
 import androidx.appcompat.app.AppCompatActivity
@@ -8,8 +9,11 @@ import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
 import android.util.Log
+import android.view.LayoutInflater
 import android.view.View
+import android.widget.Button
 import android.widget.ImageView
+import android.widget.TextView
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -115,8 +119,29 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         //Creating the markers
         for ((i, busStop) in busStops.withIndex())
         {
-            createMarker(busStop.latitude, busStop.longitude, busStop.name)
+            createMarker(busStop, mMap)
         }
+
+        mMap.setInfoWindowAdapter(object : GoogleMap.InfoWindowAdapter {
+            override fun getInfoWindow(marker: Marker): View? {
+                // Infla el layout del InfoWindow
+                val view = LayoutInflater.from(this@MapsActivity).inflate(R.layout.custom_infowindow, null)
+
+                // Encuentra los elementos de la vista y configura el contenido
+                val tvTitle = view.findViewById<TextView>(R.id.tv_title)
+                tvTitle.text = marker.title
+                // Puedes agregar más elementos a la vista según tus necesidades
+
+                return view
+            }
+            override fun getInfoContents(marker: Marker): View? {
+                // Si quieres personalizar el contenido cuando se hace clic en el marcador,
+                // puedes implementar esta función.
+                return null
+            }
+        })
+
+        // Start the travel
 
 
         setupRecyclerView(mMap)
@@ -159,13 +184,17 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     // Add a marker
-    private fun createMarker(latitude:Double, longitude:Double, name:String) {
-        val location = LatLng(latitude, longitude)
-        mMap.addMarker(MarkerOptions()
+    private fun createMarker(busStop: BusStop, mMap: GoogleMap) {
+        val location = LatLng(busStop.latitude, busStop.longitude)
+        val marker = mMap.addMarker(MarkerOptions()
             .position(location)
-            .title(name)
+            .title(busStop.name)
             .icon(BitmapDescriptorFactory.fromResource(R.mipmap.ic_bus_station))
         )
+        if (marker != null) {
+            marker.tag = busStop
+            // Crear el InfoWindow directamente aquí
+        }
     }
 
     // Metodo para saber si el permiso "FINE LOCATION" esta aceptado o no

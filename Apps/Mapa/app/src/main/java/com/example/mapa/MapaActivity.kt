@@ -54,7 +54,7 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var fusedLocationProviderClient: FusedLocationProviderClient
     private lateinit var lastLocation: Location
 
-    private var busStops: ArrayList<TransportInformationActivity.BusStop>? = null
+    private var busStops = ArrayList<BusStop>()
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -72,7 +72,7 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
         /**
          * Getting all the bus stations of the line selected
          */
-        busStops = intent.getSerializableExtra("busStops") as ArrayList<TransportInformationActivity.BusStop>?
+        busStops = intent.getSerializableExtra("busStops") as ArrayList<BusStop>
         btnLocation = findViewById(R.id.location_button)
 
 

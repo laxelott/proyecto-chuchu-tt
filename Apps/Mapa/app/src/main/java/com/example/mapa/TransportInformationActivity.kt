@@ -19,10 +19,6 @@ class TransportInformationActivity : AppCompatActivity() {
     //Variable of start button
     private lateinit var btnStart: Button
 
-    //Object with the info of the busStop
-    data class BusStop(val id: Int, val name: String, val latitude: Double, val longitude: Double) : Serializable
-    //Object with all the line info
-    data class TransportInfo(val name: String, val description: String, val color: Long, val busStops: List<BusStop>)
     //Array of objects with all the station lines info
     private lateinit var myTransportInfo: TransportInfo
 

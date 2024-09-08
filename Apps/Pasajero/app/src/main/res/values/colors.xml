@@ -3,5 +3,6 @@
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
     <color name="search">#607670</color>
+    <color name="principalGreen">#6ABDA6</color>
     <color name="buscadorBackground">#F1F6F5</color>
 </resources>
