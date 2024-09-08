@@ -38,7 +38,7 @@ class GeneralDAO {
     testDB() {
         return new Promise((resolve, reject) => {
             this.pool.query(
-                "SELECT nombre FROM usuario WHERE idUsuario = 0"
+                "CALL testData()"
             ).then((results) => {
                 return resolve(results[0].nombre)
             }).catch((error) => {
