@@ -45,7 +45,7 @@ BEGIN
         t.idTransport AS `id`,
         t.name as `name`,
         t.iconB64 as `icon`
-    FROm Transport
+    FROm Transport t
     ORDER BY name;
 
 END$$
@@ -64,7 +64,7 @@ BEGIN
         r.name,
         r.description,
         r.color,
-        riconB64 as `icon`
+        r.iconB64 as `icon`
     FROM Route r
     WHERE r.idTransport = pIdTransport
     ORDER BY name;
@@ -92,8 +92,8 @@ BEGIN
     );
 
     -- Get stop that's not linked to (start of route)
-    SELECT idNext FROM Stop WHERE idRoute = pIdRoute AND idStop NOT IN (
-        SELECT idNext FROM Stop WHERE idRoute = pIdRoute
+    SELECT idStop FROM Stop WHERE idRoute = pIdRoute AND idStop NOT IN (
+        SELECT idNext FROM Stop WHERE idRoute = pIdRoute and idNext IS NOT NULL
     ) INTO nextStopId;
 
     -- Fill route with linked stops
