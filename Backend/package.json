@@ -1,14 +1,16 @@
 {
-  "name": "backend",
-  "version": "0.0.0",
+  "name": "chuchu-backend",
   "private": true,
-  "main": "./src/index.ts",
+  "version": "0.4.3",
+  "main": "./dist/index.js",
   "scripts": {
-    "dev": "nodemon src/index.ts",
     "build": "rimraf dist && tsc",
     "start": "node dist/index.js DB_HOST=localhost,DB_USER=root,DB_PASS=,DB_NAME=Chuchu",
-    "serve": "npm run build && npm run begin"
+    "serve": "npm run build && npm run start"
   },
+  "files": [
+    "dist/**.**"
+  ],
   "dependencies": {
     "cookie-parser": "~1.4.4",
     "debug": "~2.6.9",
