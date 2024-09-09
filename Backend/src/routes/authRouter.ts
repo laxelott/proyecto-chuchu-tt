@@ -1,14 +1,13 @@
-import pkg from 'express';
-const { e: express } = pkg;
-var router = express.Router();
+import { Router } from 'express';
 import { AuthDAO } from '../database/authDAO.js';
 
-/* GET home page. */
+const router  = Router();
+
 router.post('/authorize', function(req, res, next) {
     let username = req.body.username;
     let password = req.body.password;
 
-    AuthDAO.authorizeUser(username, password)
+    AuthDAO.authorizeDriver(username, password)
         .then((result) => {res.send(result)})
         .catch((err) => {res.send("ERROR: " + err)});
 });

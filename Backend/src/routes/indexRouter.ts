@@ -1,11 +1,10 @@
-import pkg from 'express';
-const { e: express } = pkg;
-var router = express.Router();
+import { Router } from 'express';
 import { AuthDAO } from '../database/authDAO.js';
 
-/* GET home page. */
+const router  = Router();
+
 router.get('/', function(req, res, next) {
-    AuthDAO.testDB()
+    AuthDAO.testData()
         .then((result) => {res.send("APP CHUCHU " + result)})
         .catch((err) => {res.send("ERROR: " + err)});
 });

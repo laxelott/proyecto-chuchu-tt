@@ -1,6 +1,6 @@
 import createError from 'http-errors';
-import express, { json, urlencoded } from 'express';
-import { join } from 'path';
+import express, { Express, Request, Response } from 'express';
+import path from 'path';
 import cookieParser from 'cookie-parser';
 import logger from 'morgan';
 
@@ -8,17 +8,17 @@ import indexRouter from './routes/indexRouter.js';
 import authRouter from './routes/authRouter.js';
 import transportDataRouter from './routes/transportDataRouter.js';
 
-var app = express();
+const app:Express = express();
 
 // view engine setup
-app.set('views', join(__dirname, 'views'));
+app.set('views', path.join(__dirname, './../assets/views'));
 app.set('view engine', 'jade');
 
 app.use(logger('dev'));
-app.use(json());
-app.use(urlencoded({ extended: true }));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-app.use(express.static(join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, './../assets/public')));
 
 
 // routers
@@ -33,7 +33,7 @@ app.use(function(req, res, next) {
 });
 
 // error handler
-app.use(function(err, req, res, next) {
+app.use(function(err: any, req: Request, res: Response) {
     // set locals, only providing error in development
     res.locals.message = err.message;
     res.locals.error = req.app.get('env') === 'development' ? err : {};

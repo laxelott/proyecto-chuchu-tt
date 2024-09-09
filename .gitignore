@@ -34,5 +34,5 @@ google-services.json
 
 # Node web files
 /Backend/node_modules
-/Backend/bin
+/Backend/dist
 /Backend/deploy.bat

@@ -1,7 +1,7 @@
-import pkg from 'express';
-const { e: express } = pkg;
-var router = express.Router();
+import { Router } from 'express';
 import { TransportDataDAO } from '../database/transportDataDAO.js';
+
+const router  = Router();
 
 router.post('/transport/list/', function(req, res, next) {
     TransportDataDAO.getTransports()
@@ -10,7 +10,7 @@ router.post('/transport/list/', function(req, res, next) {
 })
 
 router.post('/route/list/:transportId', function(req, res, next) {
-    let transportId = req.params.transportId;
+    let transportId:Number = Number.parseInt(req.params.transportId);
 
     TransportDataDAO.getRoutes(transportId)
         .then((result) => {res.send(JSON.stringify(result))})
@@ -18,7 +18,7 @@ router.post('/route/list/:transportId', function(req, res, next) {
 });
 
 router.post('/stop/list/:routeId', function(req, res, next) {
-    let routeId = req.params.routeId;
+    let routeId:Number = Number.parseInt(req.params.routeId);
 
     TransportDataDAO.getStops(routeId)
         .then((result) => {res.send(JSON.stringify(result))})

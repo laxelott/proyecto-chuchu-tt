@@ -2,9 +2,12 @@
   "name": "backend",
   "version": "0.0.0",
   "private": true,
-  "type": "module",
+  "main": "./src/index.ts",
   "scripts": {
-    "start": "node ./bin/www DB_HOST=localhost,DB_USER=root,DB_PASS=,DB_NAME=Chuchu"
+    "dev": "nodemon src/index.ts",
+    "build": "rimraf dist && tsc",
+    "start": "node dist/index.js DB_HOST=localhost,DB_USER=root,DB_PASS=,DB_NAME=Chuchu",
+    "serve": "npm run build && npm run begin"
   },
   "dependencies": {
     "cookie-parser": "~1.4.4",
@@ -13,6 +16,18 @@
     "http-errors": "~1.6.3",
     "jade": "^0.29.0",
     "morgan": "~1.9.1",
+    "mysql2": "^3.11.0",
     "promise-mysql": "^5.2.0"
+  },
+  "devDependencies": {
+    "@types/bluebird-global": "^3.5.18",
+    "@types/cookie-parser": "^1.4.7",
+    "@types/debug": "^4.1.12",
+    "@types/express": "^4.17.21",
+    "@types/express-handlebars": "^6.0.0",
+    "@types/morgan": "^1.9.9",
+    "@types/node": "^22.5.4",
+    "rimraf": "^6.0.1",
+    "ts-node": "^10.9.2"
   }
 }
