@@ -1,12 +1,13 @@
-var express = require('express');
+import pkg from 'express';
+const { e: express } = pkg;
 var router = express.Router();
-const GeneralDAO = require('../database/database');
+import { AuthDAO } from '../database/authDAO.js';
 
 /* GET home page. */
 router.get('/', function(req, res, next) {
-    GeneralDAO.testDB()
+    AuthDAO.testDB()
         .then((result) => {res.send("APP CHUCHU " + result)})
         .catch((err) => {res.send("ERROR: " + err)});
 });
 
-module.exports = router;
+export default router;
