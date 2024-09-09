@@ -31,5 +31,8 @@ google-services.json
 
 # Android Profiling
 *.hprof
+
+# Node web files
 /Backend/node_modules
 /Backend/bin
+/Backend/deploy.bat
