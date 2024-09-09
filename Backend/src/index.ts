@@ -1,11 +1,20 @@
 #!/usr/bin/env node
 
 /**
+ * Environment Variables 
+ */
+import { config } from 'dotenv';
+import path from 'path';
+
+config({path:path.join(__dirname, "..", ".env")});
+
+/**
  * Module dependencies.
  */
 import app from './app.js';
 import Debug from 'debug';
 import { createServer } from 'http';
+
 const debug = Debug('backend:server');
 
 /**

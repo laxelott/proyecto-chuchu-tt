@@ -36,3 +36,4 @@ google-services.json
 /Backend/node_modules
 /Backend/dist
 /Backend/deploy.bat
+/Backend/package-lock.json

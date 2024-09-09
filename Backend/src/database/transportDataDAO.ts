@@ -1,27 +1,28 @@
 import { RowDataPacket } from 'mysql2';
-import { dbPool } from './conn/databaseConnection.js';
+import SQLPool from './conn/databaseConnection.js';
 
 export class TransportDataDAO {
     static async getTransports() {
-        const result: any = (await dbPool).query<RowDataPacket[]>(
+        const results: any = await SQLPool.query(
             "CALL getTransports()"
         );
-        return result[0];
+
+        return results;
     }
     
     static async getRoutes(transportId: Number) {
-        const result: any = (await dbPool).query<RowDataPacket[]>(
+        const results: any = await SQLPool.query(
             "CALL getRoutesFromTransport(?)",
             [transportId]
         );
-        return result[0];
+        return results;
     }
     
     static async getStops(routeId: Number) {
-        const result: any = (await dbPool).query<RowDataPacket[]>(
+        const results: any = await SQLPool.query(
             "CALL getStopsFromRoute(?)",
             [routeId]
         );
-        return result[0];
+        return results;
     }
 }

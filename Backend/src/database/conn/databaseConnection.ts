@@ -1,4 +1,6 @@
-import { createPool } from "promise-mysql";
+import { RowDataPacket } from "mysql2";
+import { createPool, Pool, QueryResult } from "mysql2/promise";
+import { ppid } from "process";
 
 const options = {
     host: `${process.env.DB_HOST}`,
@@ -11,4 +13,19 @@ const options = {
     queueLimit: 0
 };
 
-export const dbPool = createPool(options);
+class SQLPool {
+    dbPool: Pool;
+
+    constructor() {
+        this.dbPool = createPool(options);
+    }
+
+    async query(query: string, args: any[] = []) {
+        const results: any = (await this.dbPool.execute( query, args ))[0];
+        return results[0];
+    }
+}
+
+
+
+export default new SQLPool();

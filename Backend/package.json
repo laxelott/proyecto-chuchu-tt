@@ -5,7 +5,7 @@
   "main": "./dist/index.js",
   "scripts": {
     "build": "rimraf dist && tsc",
-    "start": "node dist/index.js DB_HOST=localhost,DB_USER=root,DB_PASS=,DB_NAME=Chuchu",
+    "start": "node dist/index.js",
     "serve": "npm run build && npm run start"
   },
   "files": [
@@ -14,12 +14,12 @@
   "dependencies": {
     "cookie-parser": "~1.4.4",
     "debug": "~2.6.9",
+    "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "http-errors": "~1.6.3",
     "jade": "^0.29.0",
     "morgan": "~1.9.1",
-    "mysql2": "^3.11.0",
-    "promise-mysql": "^5.2.0"
+    "mysql2": "^3.11.0"
   },
   "devDependencies": {
     "@types/bluebird-global": "^3.5.18",
