@@ -1,5 +1,6 @@
 DELIMITER $$
 
+
 -- -----------------------------------------------------------------------------
   -- testData
 -- -----------------------------------------------------------------------------
@@ -7,210 +8,324 @@ DROP PROCEDURE IF EXISTS testData$$
 CREATE PROCEDURE testData()
 BEGIN
 
-    IF (SELECT COUNT(*) FROM user WHERE idUser = 0) > 0 THEN
-        SELECT CONCAT(name, ' (', curp, '), ', email) FROM user WHERE idUser = 0;
+    IF (SELECT COUNT(*) FROM Driver) > 0 THEN
+        SELECT ( CONCAT(d.name, ' (', d.curp, ')') ) AS 'test' FROM Driver d LIMIT 1;
     ELSE
-        SELECT 'Funcionando, pero no se encuentra el usuario :c';
+        SELECT 'Funcionando, pero no hay conductores :c' AS 'test';
     END IF;
 
 END$$
 
+
 -- -----------------------------------------------------------------------------
-  -- authorizeUser
+  -- authorizeDriver
 -- -----------------------------------------------------------------------------
-DROP PROCEDURE IF EXISTS authorizeUser$$
-CREATE PROCEDURE authorizeUser(
-    username DATETIME,
-    password DATETIME
+DROP PROCEDURE IF EXISTS authorizeDriver$$
+CREATE PROCEDURE authorizeDriver(
+    `pUsername` datetime,
+    `pPassword` datetime
 )
 BEGIN
 
-    SELECT count(*) FROM user
-        WHERE usuario.username = username
-        AND usuario.pass = CONCAT(usuario.salt, password);
+    SELECT count(*) AS auth FROM Driver d
+        WHERE d.username = pUsername
+        AND d.password = pPassword;
+
+END$$
+
+
+-- -----------------------------------------------------------------------------
+  -- getTransports
+-- -----------------------------------------------------------------------------
+DROP PROCEDURE IF EXISTS getTransports$$
+CREATE PROCEDURE getTransports()
+BEGIN
+
+    SELECT
+        t.idTransport AS `id`,
+        t.name as `name`,
+        t.iconB64 as `icon`
+    FROm Transport
+    ORDER BY name;
 
 END$$
 
 -- -----------------------------------------------------------------------------
-  -- getStopsFromLine
+  -- getRoutesFromTransport
 -- -----------------------------------------------------------------------------
-DROP PROCEDURE IF EXISTS getStopsFromLine$$
-CREATE PROCEDURE getStopsFromLine(
-    pIdLine INT
+DROP PROCEDURE IF EXISTS getRoutesFromTransport$$
+CREATE PROCEDURE getRoutesFromTransport(
+    `pIdTransport` int
 )
 BEGIN
 
-    DECLARE nextStopId INT;
+    SELECT
+        r.idRoute as `id`,
+        r.name,
+        r.description,
+        r.color,
+        riconB64 as `icon`
+    FROM Route r
+    WHERE r.idTransport = pIdTransport
+    ORDER BY name;
 
-    DROP TABLE IF EXISTS temp_StopsInLine;
-    CREATE TEMPORARY TABLE temp_StopsInLine(
-        idStop INT,
-        name VARCHAR(200),
-        coordsX DOUBLE,
-        coordsY DOUBLE
+END$$
+
+-- -----------------------------------------------------------------------------
+  -- getStopsFromRoute
+-- -----------------------------------------------------------------------------
+DROP PROCEDURE IF EXISTS getStopsFromRoute$$
+CREATE PROCEDURE getStopsFromRoute(
+    `pIdRoute` int
+)
+BEGIN
+
+    DECLARE `nextStopId` int;
+
+    DROP TABLE IF EXISTS temp_StopsInRoute;
+    CREATE TEMPORARY TABLE temp_StopsInRoute(
+        `idStop` int,
+        `name` varchar(200),
+        `coordX` double,
+        `coordY` double,
+        `icon` blob
     );
 
-    -- Selecciona la única parada no referenciada
-    SELECT idNext FROM stop WHERE idLine = pIdLine AND idStop NOT IN (
-        SELECT idNext FROM stop WHERE idLinea = pIdLine
+    -- Get stop that's not linked to (start of route)
+    SELECT idNext FROM Stop WHERE idRoute = pIdRoute AND idStop NOT IN (
+        SELECT idNext FROM Stop WHERE idRoute = pIdRoute
     ) INTO nextStopId;
 
-    WHILE nextStopId = NULL DO
-        INSERT INTO temp_StopsInLine
+    -- Fill route with linked stops
+    WHILE nextStopId IS NOT NULL DO
+        INSERT INTO temp_StopsInRoute
         SELECT
-            idStop,
-            name,
-            coordsX,
-            coordsY
-        FROM stop
+            s.idStop,
+            s.name,
+            s.coordX,
+            s.coordY,
+            s.iconB64
+        FROM Stop s
         WHERE idStop = nextStopId;
 
-        SELECT idNext FROM stop WHERE idStop = nextStopId
+        SELECT idNext FROM Stop WHERE idStop = nextStopId
         INTO nextStopId;
     END WHILE;
 
-    SELECT * FROM temp_StopsInLine;
-    DROP TABLE temp_StopsInLine;
+    SELECT * FROM temp_StopsInRoute;
+    DROP TABLE temp_StopsInRoute;
 
 END$$
+
+
+-- -----------------------------------------------------------------------------
+  -- generateSalt
+-- -----------------------------------------------------------------------------
+DROP PROCEDURE IF EXISTS generateSalt$$
+CREATE PROCEDURE generateSalt()
+BEGIN
+
+    DECLARE `newSalt` varchar(35);
+    
+    SET newSalt = MD5(RAND());
+    WHILE (
+        (SELECT COUNT(*) FROM Driver d WHERE d.salt = newSalt) +
+        (SELECT COUNT(*) FROM Admin a WHERE a.salt = newSalt)
+    ) > 0 DO
+        SET newSalt = MD5(RAND());
+    END WHILE;
+    SELECT newSalt;
+
+END$$
+
+
+-- -----------------------------------------------------------------------------
+  -- unlinkDriver
+-- -----------------------------------------------------------------------------
+DROP PROCEDURE IF EXISTS unlinkDriver$$
+CREATE PROCEDURE unlinkDriver(
+    pCurp varchar(50)
+)
+BEGIN
+
+    DELETE FROM Driver_Vehicle
+        WHERE idDriver = (
+            SELECT idDriver FROM Driver WHERE curp = pCurp
+        );
+
+END$$
+
+
+-- -----------------------------------------------------------------------------
+  -- linkDriverVehicle
+-- -----------------------------------------------------------------------------
+DROP PROCEDURE IF EXISTS linkDriverVehicle$$
+CREATE PROCEDURE linkDriverVehicle(
+    pCurp varchar(50),
+    pIdentifier varchar(255)
+)
+BEGIN
+
+    DECLARE vIdDriver INT;
+    DECLARE vIdVehicle INT;
+
+    SELECT idDriver FROM Driver WHERE curp = pCurp
+        INTO vIdDriver;
+    SELECT idVehicle FROM Vehicle WHERE identifier = pIdentifier
+        INTO vIdVehicle;
+
+    IF (
+        SELECT COUNT(*) FROM Driver_Vehicle
+            WHERE idDriver = vIdDriver
+            AND idVehicle = vIdVehicle
+    ) = 0 THEN
+        INSERT INTO Driver_Vehicle(idDriver, idVehicle) VALUES
+            (vIdDriver, vIdVehicle); 
+    END IF;
+
+END$$
+
+
+
 
 -- -----------------------------------------------------------------------------
 --                 UPSERTS
 -- -----------------------------------------------------------------------------
 
 -- -----------------------------------------------------------------------------
-  -- upsertUser
+  -- upsertDriver
 -- -----------------------------------------------------------------------------
-DROP PROCEDURE IF EXISTS upsertUser$$
-CREATE PROCEDURE upsertUser(
-    pIdUserType INT,
-    pName VARCHAR(200),
-    pPassword VARCHAR(200),
-    pPhone VARCHAR(30),
-    pEmail VARCHAR(100),
-    pCurp VARCHAR(20)
+DROP PROCEDURE IF EXISTS upsertDriver$$
+CREATE PROCEDURE upsertDriver(
+    `pCurp` varchar(20),
+    `pName` varchar(255),
+    `pSurnameP` varchar(255),
+    `pSurnameM` varchar(255),
+    `pPassword` varchar(50),
+    `pSalt` varchar(40),
+    `pPhone` varchar(30),
+    `pActive` tinyint
 )
 BEGIN
 
-    DECLARE newUsername VARCHAR(50);
-    DECLARE newSalt VARCHAR(35);
+    DECLARE `newUsername` varchar(50);
 
     -- TODO newUsername generation logic
     SET newUsername = pCurp;
 
-    -- salt random generation logic
-    SET newSalt = MD5(RAND());
-
-    WHILE (SELECT COUNT(*) FROM user WHERE salt = newSalt) > 0 DO
-        SET newSalt = MD5(RAND());
-    END WHILE;
-
-    IF (SELECT COUNT(*) FROM user WHERE curp = pCurp) > 0 THEN
-        -- update
-        UPDATE user SET
-            idUserType = pIdUserType,
-            name = pName,
-            username = newUsername,
-            password = pPassword,
-            salt = newSalt,
-            phone = pPhone,
-            email = pEmail
-        WHERE curp = pCurp;
-        SELECT idUser FROM user WHERE curp = pCurp;
+    IF (SELECT COUNT(*) FROM Driver d WHERE d.curp = pCurp) > 0 THEN
+        UPDATE Driver d SET
+            d.name = pName,
+            d.surnameP = pSurnameP,
+            d.surnameM = pSurnameM,
+            d.username = newUsername,
+            d.password = pPassword,
+            d.salt = pSalt,
+            d.phone = pPhone,
+            d.active = pActive
+        WHERE d.curp = pCurp;
+        SELECT d.idDriver FROM Driver d WHERE d.curp = pCurp;
     ELSE 
-        -- insert
-        INSERT INTO user(
-            idUserType, name, username, password, salt, phone, email, curp
+        INSERT INTO Driver(
+            curp, name, surnameP, surnameM, username, password, salt, phone, active
         ) VALUES (
-            pIdUserType, pName, newUsername, pPassword, newSalt, pPhone, pEmail, pCurp
+            pCurp, pName, pSurnameP, pSurnameM, newUsername, pPassword, pSalt, pPhone, pActive
         );
         SELECT LAST_INSERT_ID();
     END IF;
 
 END$$
+
 
 -- -----------------------------------------------------------------------------
   -- upsertStop
 -- -----------------------------------------------------------------------------
 DROP PROCEDURE IF EXISTS upsertStop$$
 CREATE PROCEDURE upsertStop(
-    pIdStop INT,
-    pIdLine INT,
-    pName VARCHAR(200),
-    pCoordsX DOUBLE,
-    pCorodsY DOUBLE,
-    pIdNext INT
+    `pIdRoute` int,
+    `pName` varchar(255),
+    `pCoordX` double,
+    `pCoordY` double,
+    `pNameNext` varchar(255)
 )
 BEGIN
+    DECLARE `vCurrIdStop` int;
+    DECLARE `vIdNext` int;
 
-    DECLARE newIdNext INT;
+    IF (SELECT COUNT(*) FROM Stop s WHERE s.idRoute = pIdRoute AND s.name = pNameNext ) > 0 THEN
+        SELECT idStop FROM Stop s WHERE s.idRoute = pIdRoute AND s.name = pNameNext
+            INTO vIdNext;
+    ELSE
+        SET vIdNext = NULL;
+    END IF;
 
-    IF (SELECT COUNT(*) FROM stop WHERE idStop = pIdStop) > 0 THEN
-        -- update
-        -- remove stop from chain
-        UPDATE stop SET
-            idNext = (SELECT idNext FROM stop WHERE idStop = pIdStop);
+    IF (SELECT COUNT(*) FROM Stop s WHERE s.idRoute = pIdRoute AND s.name = pName) > 0 THEN
+        SELECT s.idStop FROM Stop s WHERE s.idRoute = pIdRoute AND s.name = pName
+            INTO vCurrIdStop;
         
-        UPDATE stop SET
-            idLine = pIdLine,
-            name = pName,
-            coordsX = pCoordsX,
-            coordsY = pCorodsY,
-            idNext = -1
-        WHERE idStop = pIdStop;
-
-        SET newIdNext = pIdStop;
-    ELSE 
-        -- insert
-        INSERT INTO stop(
-            idLine, name, coordsX, coordsY, idNext
+        -- remove from chain
+        UPDATE Stop s SET
+            s.idNext = (SELECT idNext FROM Stop WHERE idStop = vCurrIdStop)
+        WHERE s.idNext = vCurrIdStop;
+        
+        UPDATE Stop s SET
+            s.coordX = pCoordX,
+            s.coordY = pCoordY,
+            s.idNext = -1
+        WHERE s.idStop = vCurrIdStop;
+    ELSE
+        INSERT INTO Stop(
+            idRoute, name, coordX, coordY, idNext
         ) VALUES (
-            pIdLine, pName, pCoordsX, pCorodsY, -1
+            pIdRoute, pName, pCoordX, pCoordY, -1
         );
 
-        SELECT LAST_INSERT_ID() INTO newIdNext;
+        SELECT LAST_INSERT_ID() INTO vCurrIdStop;
     END IF;
 
     -- link into chain
-    UPDATE stop SET
-        idNext = newIdNext
-    WHERE idNext = pIdNext;
-    
-    UPDATE stop SET
-        idNext = pIdNext
-    WHERE idStop = newIdNext;
+    UPDATE Stop s SET
+        s.idNext = vCurrIdStop
+    WHERE idNext = vIdNext
+        AND idRoute = pIdRoute;
 
-    SELECT newIdNext;
+    UPDATE Stop s SET
+        s.idNext = vIdNext
+    WHERE idStop = vCurrIdStop
+        AND idRoute = pIdRoute;
+
+    SELECT vCurrIdStop;
 
 END$$
 
+
 -- -----------------------------------------------------------------------------
-  -- upsertLine
+  -- upsertRoute
 -- -----------------------------------------------------------------------------
-DROP PROCEDURE IF EXISTS upsertLine$$
-CREATE PROCEDURE upsertLine(
-    pIdLine INT,
-    pIdTransportation INT,
-    pName VARCHAR(200),
-    pDescription VARCHAR(200)
+DROP PROCEDURE IF EXISTS upsertRoute$$
+CREATE PROCEDURE upsertRoute(
+    `pIdRoute` int,
+    `pIdTransport` int,
+    `pName` varchar(200),
+    `pDescription` varchar(200)
 )
 BEGIN
 
-    IF (SELECT COUNT(*) FROM line WHERE idLine = pIdLine) > 0 THEN
-        -- update
-        UPDATE line SET
-            idTransportation = pIdTransportation,
-            name = pName,
-            description = pDescription
-        WHERE idLine = pIdLine;
-        SELECT pIdLine;
+    IF (SELECT COUNT(*) FROM Route WHERE idRoute = pIdRoute) > 0 THEN
+        UPDATE Route r SET
+            r.idTransport = pIdTransport,
+            r.name = pName,
+            r.description = pDescription
+        WHERE r.idRoute = pIdRoute;
+        SELECT pIdRoute;
     ELSE
-        -- insert
-        INSERT INTO line(
-            idTransportation, name, description
+        INSERT INTO Route(
+            idTransport, name, description
         ) VALUES (
-            pIdTransportation, pName, pDescription
+            pIdTransport, pName, pDescription
         );
         SELECT LAST_INSERT_ID();
     END IF;
 END$$
+
+DELIMITER ;

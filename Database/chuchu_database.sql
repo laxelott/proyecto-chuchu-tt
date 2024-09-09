@@ -1,74 +1,145 @@
-DROP DATABASE IF EXISTS chuchu;
-CREATE DATABASE chuchu;
-USE chuchu;
+/****** Object:  Database `Chuchu` ******/
+DROP DATABASE IF EXISTS Chuchu;
+CREATE DATABASE `Chuchu`;
+USE `Chuchu`;
 
-CREATE TABLE transportation(
-    idTransportation INT PRIMARY KEY,
-    name VARCHAR(200) NOT NULL UNIQUE
+SET foreign_key_checks = 0;
+
+/****** Object:  Table `Admin_Transport` ******/
+CREATE TABLE `Admin_Transport`(
+    `idAdminTransport` int NOT NULL AUTO_INCREMENT,
+    `idTransport` int NOT NULL,
+    `idAdmin` int NOT NULL,
+    CONSTRAINT `PK_Admin_Transport` PRIMARY KEY (`idAdminTransport` ASC),
+    CONSTRAINT `FK_Admin_Transport_Admin` FOREIGN KEY (`idAdmin`)
+        REFERENCES `Admin` (`idAdmin`),
+    CONSTRAINT `FK_Admin_Transport_Transport` FOREIGN KEY (`idTransport`)
+        REFERENCES `Transport` (`idTransport`)
 );
 
-CREATE TABLE line (
-    idLine INT PRIMARY KEY AUTO_INCREMENT,
-    idTransportation INT NOT NULL,
-    name VARCHAR(200) NOT NULL UNIQUE,
-    description VARCHAR(200),
-
-    FOREIGN KEY (idTransportation) REFERENCES transportation(idTransportation)
+/****** Object:  Table `Admin` ******/
+CREATE TABLE `Admin`(
+    `idAdmin` int NOT NULL AUTO_INCREMENT,
+    `username` varchar(255) NOT NULL UNIQUE,
+    `password` varchar(50) NOT NULL,
+    `salt` varchar(40) NOT NULL UNIQUE,
+    CONSTRAINT `PK_Admin` PRIMARY KEY (`idAdmin` ASC)
 );
 
-CREATE TABLE stop (
-    idStop INT PRIMARY KEY AUTO_INCREMENT,
-    idLine INT NOT NULL, 
-    name VARCHAR(200),
-    coordsX DOUBLE NOT NULL,
-    coordsY DOUBLE NOT NULL,
-    idNext INT,
-
-    FOREIGN KEY (idLine) REFERENCES line(idLine)
+/****** Object:  Table `Driver` ******/
+CREATE TABLE `Driver`(
+    `idDriver` int NOT NULL AUTO_INCREMENT,
+    `curp` varchar(50) NOT NULL UNIQUE,
+    `name` varchar(255) NOT NULL,
+    `surnameP` varchar(255) NULL,
+    `surnameM` varchar(255) NULL,
+    `username` varchar(50) NOT NULL UNIQUE,
+    `password` varchar(50) NOT NULL,
+    `salt` varchar(40) NOT NULL UNIQUE,
+    `phone` varchar(20) NOT NULL,
+    `active` tinyint NOT NULL,
+    CONSTRAINT `PK_Driver` PRIMARY KEY (`idDriver` ASC)
 );
 
-CREATE TABLE incident (
-    idIncident INT PRIMARY KEY AUTO_INCREMENT,
-    idLine INT NOT NULL,
-    description VARCHAR(200),
-    coordsX DOUBLE NOT NULL,
-    coordsY DOUBLE NOT NULL,
-
-    FOREIGN KEY (idLine) REFERENCES line(idLine)
+/****** Object:  Table `Driver_Vehicle` ******/
+CREATE TABLE `Driver_Vehicle`(
+    `idDriverVehicle` int NOT NULL AUTO_INCREMENT,
+    `idDriver` int NULL,
+    `idVehicle` int NULL,
+    CONSTRAINT `PK_Driver_Vehicle` PRIMARY KEY (`idDriverVehicle` ASC),
+    CONSTRAINT `FK_Driver_Vehicle_Driver` FOREIGN KEY (`idDriver`)
+        REFERENCES `Driver` (`idDriver`),
+    CONSTRAINT `FK_Driver_Vehicle_Vehicle` FOREIGN KEY (`idVehicle`)
+        REFERENCES `Vehicle` (`idVehicle`)
 );
 
-CREATE TABLE vehicle (
-    idVehicle INT PRIMARY KEY AUTO_INCREMENT,
-    idTransportation INT NOT NULL,
-    identifier VARCHAR(200) NOT NULL,
-
-    FOREIGN KEY (idTransportation) REFERENCES transportation(idTransportation)
+/****** Object:  Table `Stop` ******/
+CREATE TABLE `Stop`(
+    `idStop` int NOT NULL AUTO_INCREMENT,
+    `idRoute` int NOT NULL,
+    `name` varchar(255) NOT NULL,
+    `coordX` double NOT NULL,
+    `coordY` double NOT NULL,
+    `iconB64` blob,
+    `idNext` int,
+    CONSTRAINT `PK_Stop` PRIMARY KEY (`idStop` ASC),
+    CONSTRAINT `FK_Stop_Route` FOREIGN KEY (`idRoute`)
+        REFERENCES `Route` (`idRoute`)
 );
 
-CREATE TABLE userType (
-    idUserType INT PRIMARY KEY,
-    name VARCHAR(200) NOT NULL UNIQUE
+/****** Object:  Table `Incident` ******/
+CREATE TABLE `Incident`(
+    `idIncident` int NOT NULL AUTO_INCREMENT,
+    `idRoute` int NOT NULL,
+    `description` varchar(255) NOT NULL,
+    `coordX` double NOT NULL,
+    `coordY` double NOT NULL,
+    CONSTRAINT `PK_Incident` PRIMARY KEY (`idIncident` ASC),
+    CONSTRAINT `FK_Incident_Route` FOREIGN KEY (`idRoute`)
+        REFERENCES `Route` (`idRoute`)
 );
 
-CREATE TABLE user (
-    idUser INT PRIMARY KEY AUTO_INCREMENT,
-    idUserType INT NOT NULL,
-    name VARCHAR(200) NOT NULL,
-    username VARCHAR(50) NOT NULL,
-    password VARCHAR(200) NOT NULL,
-    salt VARCHAR(35) NOT NULL,
-    phone VARCHAR(30),
-    email VARCHAR(100) NOT NULL,
-    curp VARCHAR(50) NOT NULL UNIQUE,
-
-    FOREIGN KEY (idUserType) REFERENCES userType(idUserType)
+/****** Object:  Table `Driver_Incident` ******/
+CREATE TABLE `Driver_Incident`(
+    `idDriverIncident` int NOT NULL AUTO_INCREMENT,
+    `idIncident` int NOT NULL,
+    `idDriver` int NOT NULL,
+    CONSTRAINT `PK_Driver_Incident` PRIMARY KEY (`idDriverIncident` ASC),
+    CONSTRAINT `FK_Driver_Incident_Driver` FOREIGN KEY (`idDriver`)
+        REFERENCES `Driver` (`idDriver`),
+    CONSTRAINT `FK_Driver_Incident_Incident` FOREIGN KEY (`idIncident`)
+        REFERENCES `Incident` (`idIncident`)
 );
 
-CREATE TABLE user_vehicle (
-    idUserVehicle INT PRIMARY KEY AUTO_INCREMENT,
-    idUser INT NOT NULL,
-    idVehicle INT NOT NULL,
+/****** Object:  Table `Route` ******/
+CREATE TABLE `Route`(
+    `idRoute` int NOT NULL AUTO_INCREMENT,
+    `idTransport` int NOT NULL,
+    `name` varchar(255) NOT NULL,
+    `description` varchar(255) NOT NULL,
+    `color` varchar(10) NOT NULL,
+    `iconB64` blob,
+    CONSTRAINT `PK_Route` PRIMARY KEY (`idRoute` ASC),
+    CONSTRAINT `FK_Route_Transport` FOREIGN KEY (`idTransport`)
+        REFERENCES `Transport` (`idTransport`)
+);
 
-    FOREIGN KEY (idVehicle) REFERENCES vehicle(idVehicle),
-    FOREIGN KEY (idUser) REFERENCES user(idUser)
-)
+/****** Object:  Table `Transport` ******/
+CREATE TABLE `Transport`(
+    `idTransport` int NOT NULL AUTO_INCREMENT,
+    `name` varchar(255) NOT NULL UNIQUE,
+    `iconB64` blob,
+    CONSTRAINT `PK_Transport` PRIMARY KEY (`idTransport` ASC)
+);
+
+/****** Object:  Table `Last_Location` ******/
+CREATE TABLE `Last_Location`(
+    `idLocation` int NOT NULL AUTO_INCREMENT,
+    `idVehicle` int NOT NULL,
+    `coordX` double NOT NULL,
+    `coordY` double NOT NULL,
+    CONSTRAINT `PK_Last_Location` PRIMARY KEY (`idLocation` ASC),
+    CONSTRAINT `FK_Last_Location_Vehicle` FOREIGN KEY (`idVehicle`)
+        REFERENCES `Vehicle` (`idVehicle`)
+);
+
+/****** Object:  Table `Vehicle` ******/
+CREATE TABLE `Vehicle`(
+    `idVehicle` int NOT NULL AUTO_INCREMENT,
+    `identifier` varchar(255) NOT NULL UNIQUE,
+    CONSTRAINT `PK_Vehicle` PRIMARY KEY (`idVehicle` ASC)
+);
+
+/****** Object:  Table `Vehicle_Route` ******/
+CREATE TABLE `Vehicle_Route`(
+    `idVehicleRoute` int NOT NULL AUTO_INCREMENT,
+    `idRoute` int NOT NULL,
+    `idVehicle` int NOT NULL,
+    CONSTRAINT `PK_Vehicle_Route` PRIMARY KEY (`idVehicleRoute` ASC),
+    CONSTRAINT `FK_Vehicle_Route_Route` FOREIGN KEY (`idRoute`)
+        REFERENCES `Route` (`idRoute`),
+    CONSTRAINT `FK_Vehicle_Route_Vehicle` FOREIGN KEY (`idVehicle`)
+        REFERENCES `Vehicle` (`idVehicle`)
+);
+
+SET foreign_key_checks = 0;
