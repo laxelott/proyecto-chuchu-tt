@@ -4,18 +4,19 @@
   "version": "0.4.3",
   "main": "./dist/index.js",
   "scripts": {
-    "build": "rimraf dist && tsc",
+    "buildDev": "rimraf dist && tsc",
     "start": "node dist/index.js",
-    "serve": "npm run build && npm run start"
+    "serve": "npm run buildDev && npm run start"
   },
   "files": [
     "dist/**.**"
   ],
   "dependencies": {
     "cookie-parser": "~1.4.4",
+    "crypto": "^1.0.1",
     "debug": "~2.6.9",
     "dotenv": "^16.4.5",
-    "express": "^4.19.2",
+    "express": "^3.21.2",
     "http-errors": "~1.6.3",
     "jade": "^0.29.0",
     "morgan": "~1.9.1",

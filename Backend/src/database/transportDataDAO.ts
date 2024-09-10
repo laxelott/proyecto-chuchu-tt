@@ -1,4 +1,3 @@
-import { RowDataPacket } from 'mysql2';
 import SQLPool from './conn/databaseConnection.js';
 
 export class TransportDataDAO {
