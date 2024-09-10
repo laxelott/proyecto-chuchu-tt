@@ -12,4 +12,13 @@ router.post('/authorize', function(req, res, next) {
         .catch((err) => {res.send("ERROR: " + err)});
 });
 
+router.post("/getHashedKey/:username/:password", (req, res) => {
+    let username = req.params.username
+    let password = req.params.password
+
+    AuthDAO.getHashedPassword(username, password)
+        .then((result) => {res.send(result)})
+        .catch((err) => {res.send("ERROR: " + err)});
+})
+
 export default router;

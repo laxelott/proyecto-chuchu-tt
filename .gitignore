@@ -37,3 +37,4 @@ google-services.json
 /Backend/dist
 /Backend/deploy.bat
 /Backend/package-lock.json
+/Backend/*.env

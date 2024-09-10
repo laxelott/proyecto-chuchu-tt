@@ -7,6 +7,7 @@ import logger from 'morgan';
 import indexRouter from './routes/indexRouter.js';
 import authRouter from './routes/authRouter.js';
 import transportDataRouter from './routes/transportDataRouter.js';
+import locationRouter from './routes/locationRouter.js';
 
 const app:Express = express();
 
@@ -25,6 +26,7 @@ app.use(express.static(path.join(__dirname, './../assets/public')));
 app.use('/', indexRouter);
 app.use('/api/auth/', authRouter);
 app.use('/api/data/', transportDataRouter);
+app.use('/api/location/', locationRouter);
 
 
 // catch 404 and forward to error handler

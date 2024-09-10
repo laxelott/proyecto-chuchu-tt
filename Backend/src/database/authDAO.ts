@@ -13,7 +13,7 @@ export class AuthDAO {
         const salt: any = (await SQLPool.query(
             "CALL findDriverSalt(?)",
             [username]
-        ))[0];
+        ))[0].salt;
 
         if (salt == "not-found") {
             throw Error("Usuario no encontrado!");
@@ -33,7 +33,7 @@ export class AuthDAO {
         const salt: any = (await SQLPool.query(
             "CALL findDriverSalt(?)",
             [username]
-        ))[0];
+        ))[0].salt;
 
         if (salt == "not-found") {
             throw Error("Usuario no encontrado!");
@@ -46,11 +46,11 @@ export class AuthDAO {
 
     static hashKey(key: string, salt: string) {
         return new Promise((resolve, reject) => {
-            crypto.pbkdf2(key, salt, 100000, 200, 'sha512', async (err, derivedKey) => {
+            crypto.pbkdf2(key, salt, 100000, 50, 'sha512', async (err, derivedKey) => {
                 if (err) {
                     reject(err);
                 } else {
-                    resolve(derivedKey);
+                    resolve(derivedKey.toString('hex'));
                 }
             })
         }) 

@@ -1,17 +1,18 @@
-import { RowDataPacket } from "mysql2";
-import { createPool, Pool, QueryResult } from "mysql2/promise";
-import { ppid } from "process";
+import { createPool, Pool, PoolOptions, QueryResult } from "mysql2/promise";
 
-const options = {
+let options: PoolOptions = {
     host: `${process.env.DB_HOST}`,
     user: process.env.DB_USER,
     password: process.env.DB_PASS,
     database: process.env.DB_NAME,
-    socketPath: `${process.env.DB_HOST}`,
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0
 };
+
+if (process.env.NODE_ENV != 'dev') {
+    options.socketPath = `${process.env.DB_HOST}`;
+}
 
 class SQLPool {
     dbPool: Pool;
