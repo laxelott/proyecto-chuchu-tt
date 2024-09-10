@@ -119,6 +119,24 @@ END$$
 
 
 -- -----------------------------------------------------------------------------
+  -- findDriverSalt
+-- -----------------------------------------------------------------------------
+DROP PROCEDURE IF EXISTS findDriverSalt$$
+CREATE PROCEDURE findDriverSalt(
+    `pUsername` int
+)
+BEGIN
+
+    IF (SELECT COUNT(*) FROM Driver d WHERE d.username = pUsername) > 0 THEN
+        SELECT d.salt as `salt` FROM Driver d WHERE d.username = pUsername;
+    ELSE 
+        SELECT 'not-found' as `salt`;
+    END IF;
+
+END$$
+
+
+-- -----------------------------------------------------------------------------
   -- generateSalt
 -- -----------------------------------------------------------------------------
 DROP PROCEDURE IF EXISTS generateSalt$$
