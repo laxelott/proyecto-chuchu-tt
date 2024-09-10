@@ -86,8 +86,8 @@ BEGIN
     CREATE TEMPORARY TABLE temp_StopsInRoute(
         `idStop` int,
         `name` varchar(200),
-        `coordX` double,
-        `coordY` double,
+        `latitude` double,
+        `longitude` double,
         `icon` blob
     );
 
@@ -123,7 +123,7 @@ END$$
 -- -----------------------------------------------------------------------------
 DROP PROCEDURE IF EXISTS findDriverSalt$$
 CREATE PROCEDURE findDriverSalt(
-    `pUsername` int
+    `pUsername` varchar(50)
 )
 BEGIN
 
@@ -219,7 +219,7 @@ CREATE PROCEDURE upsertDriver(
     `pName` varchar(255),
     `pSurnameP` varchar(255),
     `pSurnameM` varchar(255),
-    `pPassword` varchar(50),
+    `pPassword` varchar(100),
     `pSalt` varchar(40),
     `pPhone` varchar(30),
     `pActive` tinyint

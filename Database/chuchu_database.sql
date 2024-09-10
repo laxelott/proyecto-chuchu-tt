@@ -21,7 +21,7 @@ CREATE TABLE `Admin_Transport`(
 CREATE TABLE `Admin`(
     `idAdmin` int NOT NULL AUTO_INCREMENT,
     `username` varchar(255) NOT NULL UNIQUE,
-    `password` varchar(50) NOT NULL,
+    `password` varchar(100) NOT NULL,
     `salt` varchar(40) NOT NULL UNIQUE,
     CONSTRAINT `PK_Admin` PRIMARY KEY (`idAdmin` ASC)
 );
@@ -34,7 +34,7 @@ CREATE TABLE `Driver`(
     `surnameP` varchar(255) NULL,
     `surnameM` varchar(255) NULL,
     `username` varchar(50) NOT NULL UNIQUE,
-    `password` varchar(50) NOT NULL,
+    `password` varchar(100) NOT NULL,
     `salt` varchar(40) NOT NULL UNIQUE,
     `phone` varchar(20) NOT NULL,
     `active` tinyint NOT NULL,
@@ -60,7 +60,7 @@ CREATE TABLE `Stop`(
     `name` varchar(255) NOT NULL,
     `coordX` double NOT NULL,
     `coordY` double NOT NULL,
-    `iconB64` blob,
+    `iconB64` TEXT,
     `idNext` int,
     CONSTRAINT `PK_Stop` PRIMARY KEY (`idStop` ASC),
     CONSTRAINT `FK_Stop_Route` FOREIGN KEY (`idRoute`)
@@ -98,7 +98,7 @@ CREATE TABLE `Route`(
     `name` varchar(255) NOT NULL,
     `description` varchar(255) NOT NULL,
     `color` varchar(10) NOT NULL,
-    `iconB64` blob,
+    `iconB64` TEXT,
     CONSTRAINT `PK_Route` PRIMARY KEY (`idRoute` ASC),
     CONSTRAINT `FK_Route_Transport` FOREIGN KEY (`idTransport`)
         REFERENCES `Transport` (`idTransport`)
@@ -108,7 +108,7 @@ CREATE TABLE `Route`(
 CREATE TABLE `Transport`(
     `idTransport` int NOT NULL AUTO_INCREMENT,
     `name` varchar(255) NOT NULL UNIQUE,
-    `iconB64` blob,
+    `iconB64` TEXT,
     CONSTRAINT `PK_Transport` PRIMARY KEY (`idTransport` ASC)
 );
 
@@ -141,5 +141,14 @@ CREATE TABLE `Vehicle_Route`(
     CONSTRAINT `FK_Vehicle_Route_Vehicle` FOREIGN KEY (`idVehicle`)
         REFERENCES `Vehicle` (`idVehicle`)
 );
+
+/****** Object:  Table `Waypoint` ******/
+CREATE TABLE `Waypoint`(
+    `idWaypoint` int NOT NULL AUTO_INCREMENT,
+    `coordX` double NOT NULL,
+    `coordY` double NOT NULL,
+    CONSTRAINT `Waypoint` PRIMARY KEY (`idWaypoint` ASC)
+);
+
 
 SET foreign_key_checks = 0;
