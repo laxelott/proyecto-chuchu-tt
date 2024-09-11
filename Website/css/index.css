@@ -1,0 +1,166 @@
+@import url("base.css");
+@import url("navbar.css");
+
+body {
+    overflow-y: auto;    
+    section {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 3rem;
+        article.title-section {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-evenly;
+            background-color: var(--primary-background-color);
+            padding: 6.6rem;
+            div.titles {
+                h1 {
+                    &.grey {
+                        color: var(--principal-text);
+                    }
+                    &.green {
+                        color: var(--principal-green);
+                    }
+                }
+                span {
+                    font-size: 1.5rem;
+                    color: var(--secondary-text);
+                }
+            }
+        }
+        article.what-to-do {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+            h2 {
+                text-align: center;
+            }
+            div.container {
+                width: 100%;
+                display: flex;
+                flex-direction: row;
+                justify-content: space-around;
+                div {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    text-align: center;
+                    width: 20rem;
+                    gap: 1rem;
+                    padding: 2rem 1rem;
+                    box-shadow: 0px 0px 5px 1px rgba(0, 0, 0, 0.1);
+                    -webkit-box-shadow: 0px 0px 5px 1px rgba(0, 0, 0, 0.1);
+                    -moz-box-shadow: 0px 0px 5px 1px rgba(0, 0, 0, 0.1);
+                    border-radius: 5px;
+                    -webkit-border-radius: 5px;
+                    -moz-border-radius: 5px;
+                    -ms-border-radius: 5px;
+                    -o-border-radius: 5px;
+                    img {
+                        width: 4.4rem;
+                    }
+                    span {
+                        font-size: 1.2rem;
+                        color: var(--secondary-text);
+                    }
+                }
+            }
+        }
+        article.viaje-inteligente {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-evenly;
+            padding: 3.6rem 0;
+            background-color: var(--primary-background-color);
+            img {
+                width: 30rem;
+            }
+            section {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+                width: 40rem;
+                span {
+                    font-size: 1.2rem;
+                    color: var(--secondary-text);
+                }
+            }
+        }
+        article.about-us {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 3.6rem 0;
+            gap: 3rem;
+            section.us {
+                width: 40rem;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+                gap: 1rem;
+                span {
+                    font-size: 1.2rem;
+                    color: var(--secondary-text);
+                }
+            }
+            section.mision-vision {
+                display: flex;
+                flex-direction: row;
+                align-items: center;
+                justify-content: space-around;
+                div {
+                    width: 40rem;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    gap: 1rem;
+                    img {
+                        width: 4.4rem;
+                    }
+                    span {
+                        font-size: 1.2rem;
+                        color: var(--secondary-text);
+                    }
+                }
+            }
+        }
+    }
+    footer {
+        background-color: var(--footer);
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-around;
+        div {
+            height: 20rem;
+            display: flex;
+            color: white;
+            img {
+                width: 2rem;
+            }
+            span {
+                font-size: 2rem;
+                font-weight: bold;
+            }
+            h1 {
+                font-size: 2.4rem;
+                font-weight: bold;
+            }
+            &.logo {
+                flex-direction: row;
+                align-items: center;
+                gap: 1rem;
+            }
+            &.school {
+                flex-direction: column;
+                justify-content: center;
+            }
+        }
+    }
+}

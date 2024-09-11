@@ -1,0 +1,63 @@
+@import url("base.css");
+
+body {
+    header {
+        width: 100%;
+        padding: 2rem;
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        div {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            &.logo {
+                color: var(--icon-text);
+                gap: 0.5rem;
+                img {
+                    width: 1.4rem;
+                }
+                span {
+                    font-size: 2rem;
+                    font-weight: bold;
+                }
+            }
+            &.nav {
+                gap: 1.6rem;
+                font-size: 1.2rem;
+                font-weight: 500;
+                color: var(--principal-text);
+                a {
+                    text-decoration: none;
+                    font-size: 1.3rem;
+                    &:-webkit-any-link {
+                        color: var(--principal-text);
+                    }
+                }
+                a.button-login {
+                    display: flex;
+                    flex-direction: row;
+                    align-items: center;
+                    font-size: 1.4rem;
+                    gap: 0.5rem;
+                    padding: 1rem 1.8rem;
+                    border: none;
+                    color: white;
+                    background-color: var(--principal-green);
+                    border-radius: 5px;
+                    -webkit-border-radius: 5px;
+                    -moz-border-radius: 5px;
+                    -ms-border-radius: 5px;
+                    -o-border-radius: 5px;
+                    img {
+                        width: 1.4rem;
+                    }
+                    &:hover {
+                        cursor: pointer;
+                    }
+                }
+            }
+        }
+    }
+}
