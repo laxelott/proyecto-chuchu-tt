@@ -1,21 +1,17 @@
 package com.example.mapa.interfaces
 
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
+
+import com.example.mapa.UserInfo
 import retrofit2.Response
-
-data class User(
-    val name: String,
-    val password: String
-)
-
-data class LoginResponse(
-    val success: Boolean,
-    val errorMessage: String? = null
-)
+import retrofit2.http.POST
 
 interface ApiService {
-    suspend fun login(user: User): Response<LoginResponse>
-}
+    /*
+    * api/data/transport/list
+    * api/data/route/list/idTransport
+    * api/data/stop/list/idRoute
+    * */
+    @POST("data/transport/list")
+    suspend fun login(user: UserInfo): Response<UserInfo>
 
+}

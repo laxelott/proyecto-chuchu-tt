@@ -7,7 +7,7 @@ import android.view.ViewGroup
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 class LineInfoAdapter(
-    private var listaLineas: List<LineInfo> = ArrayList()
+    private var listaLineas: List<LineInfo> = listOf()
 ): RecyclerView.Adapter<LineInfoAdapter.ViewHolder>() {
     class ViewHolder(itemView: View): RecyclerView.ViewHolder(itemView) {
         val tvName: TextView = itemView.findViewById(R.id.tvNombre)
@@ -29,7 +29,7 @@ class LineInfoAdapter(
 
         holder.itemView.setOnClickListener {
             val intent = Intent(holder.itemView.context, MapsActivity::class.java)
-            intent.putExtra("busStops", ArrayList(linea.busStops))
+            intent.putExtra("routeID", linea.id)
             holder.itemView.context.startActivity(intent)
         }
     }

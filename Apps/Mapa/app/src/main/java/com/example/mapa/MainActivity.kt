@@ -2,6 +2,7 @@ package com.example.mapa
 
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
@@ -9,14 +10,8 @@ import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import com.example.mapa.interfaces.ApiService
-import com.example.mapa.interfaces.LoginResponse
-import com.example.mapa.interfaces.User
+import com.example.mapa.interfaces.ApiHelper
 import com.example.mapa.recoveryPassword.RecoveryPasswordActivity
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
@@ -30,11 +25,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var username: EditText
     //Variable for the password
     private lateinit var password: EditText
-    // Retrofit instance (initialized once)
-    private val retrofit = Retrofit.Builder()
-        .baseUrl("https://chuchu-backend-sdhfdsksuq-vp.a.run.app/") // Replace with your URL
-        .addConverterFactory(GsonConverterFactory.create())
-        .build()
 
     //OnCreate
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -62,8 +52,6 @@ class MainActivity : AppCompatActivity() {
 
         // When the login is success
         btnLogin.setOnClickListener {
-            val intent = Intent(this, TransportInformationActivity::class.java)
-            startActivity(intent)
             //login()
         }
     }
@@ -73,7 +61,7 @@ class MainActivity : AppCompatActivity() {
         username = findViewById(R.id.user_name)
         // Getting the password
         password = findViewById(R.id.user_password)
-        val user = User(username.text.toString(), password.text.toString())
+        val user = UserInfo(username.text.toString(), password.text.toString())
 
         if (user.name.isEmpty() || user.password.isEmpty()) {
             // Handle empty fields
@@ -82,26 +70,19 @@ class MainActivity : AppCompatActivity() {
 
         showProgress(true)
 
-        val service = retrofit.create(ApiService::class.java)
-
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val loginResponse: Response<LoginResponse> = service.login(user) // Assuming service.login is suspend
-                if (loginResponse.isSuccessful) {
-                    // Handle successful login (e.g., navigate to next activity)
-                    showSuccessMessage()
-                    navigateToNextActivity()
-                } else {
-                    // Handle error in login response (e.g., show error message)
-                    showError("Falló el login")
+        val service = ApiHelper().prepareApi()
+        ApiHelper().getDataFromDB<UserInfo>(
+            serviceCall = { service.login(user) }, // Pasamos la función que hace la solicitud
+            processResponse = { response ->
+                val userInfo = response.body()
+                if (userInfo != null) {
+                    Log.d("Login response", "Datos de usuario: $userInfo")
+                    val intent = Intent(this, TransportInformationActivity::class.java)
+                    intent.putExtra("User data", userInfo, 0)
+                    startActivity(intent)
                 }
-            } catch (e: Exception) {
-                // Handle network or other exceptions
-                showError(getString(R.string.error_network))
-            } finally {
-                showProgress(false)
             }
-        }
+        )
     }
 
     private fun showProgress(show: Boolean) {

@@ -1,6 +1,7 @@
 package com.example.pasajero
 
 data class TransportInfo (
+    val id: Int,
     val name: String,
-    val linesTransport: List<LineInfo>
+    val icon: String
 )

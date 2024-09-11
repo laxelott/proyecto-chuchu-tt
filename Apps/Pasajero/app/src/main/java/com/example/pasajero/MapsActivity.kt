@@ -25,6 +25,11 @@ import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MarkerOptions
 import com.example.pasajero.databinding.ActivityMapsBinding
+import com.example.pasajero.interfaces.ApiHelper
+import com.example.pasajero.interfaces.ApiService
+import com.example.pasajero.interfaces.CustomInfoWindowAdapter
+import com.example.pasajero.interfaces.DirectionsResponse
+import com.example.pasajero.interfaces.GoogleDirectionsApi
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
@@ -32,6 +37,13 @@ import com.google.android.gms.maps.model.MapStyleOptions
 import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.PolylineOptions
 import com.google.maps.android.PolyUtil
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -45,11 +57,12 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var btnLocation: ImageView
     private lateinit var adapter: BusStopAdapter
     private lateinit var stationsButton: ImageView
-    private var busStops = ArrayList<BusStop>()
+    private var routeID: Int = 0
+    private var busStops: List<BusStop> = listOf()
     private lateinit var directionsAPI: GoogleDirectionsApi
     private lateinit var waypoints: List<LatLng>
     private var busStopMarkers: MutableMap<BusStop, Marker> = mutableMapOf<BusStop, Marker>()
-    //private val busStopMarkers = mutableMapOf<BusStop, Marker>()
+    private lateinit var coroutineScope: CoroutineScope
 
     //Variables to ask for the location permission
     companion object{
@@ -57,7 +70,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
     }
     private lateinit var fusedLocationProviderClient: FusedLocationProviderClient
     private lateinit var lastLocation: Location
-    private lateinit var currentLocation: LatLng
+    private var currentLocation: LatLng = LatLng(0.0,0.0)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -73,11 +86,17 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         // Construct a FusedLocationProviderClient.
         fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this)
 
-        /**
-         * Getting all the bus stations of the line selected
-         */
-        busStops = intent.getSerializableExtra("busStops") as ArrayList<BusStop>
         btnLocation = findViewById(R.id.location_button)
+        // Get all the busStops from the line selected
+        // api/data/stop/list/idRoute
+        routeID = intent.getIntExtra("routeID",0)
+        val service = ApiHelper().prepareApi()
+        fetchBusStops(service)
+        // Configurar CoroutineScope
+        coroutineScope = CoroutineScope(Dispatchers.Main + Job())
+
+        // Llamar a la función para enviar datos periódicamente
+        startSendingDataPeriodically()
 
         val retrofit = Retrofit.Builder()
             .baseUrl("https://maps.googleapis.com/maps/api/")
@@ -88,7 +107,76 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
             LatLng(19.505161688551212, -99.15055914014806),
 //            LatLng(19.505189627612836, -99.15048185099594)
         )
+    }
 
+    private fun fetchBusStops(service: ApiService){
+        ApiHelper().getDataFromDB(
+            serviceCall = { service.getBusStopsInfo(routeID) }, // Pasamos la función que hace la solicitud
+            processResponse = { response ->
+                val busStopsInfo = response.body()
+                if (busStopsInfo != null) {
+                    Log.d("Transport response", "Datos de transporte: $busStopsInfo")
+                    busStops = busStopsInfo
+                    runOnUiThread {
+                        setupMapMarkersAndRoutes()
+                        setupRecyclerView()  // Ensure RecyclerView is updated after fetching bus stops
+                    }
+                }
+            }
+        )
+    }
+
+    private fun setupMapMarkersAndRoutes() {
+        if (!::mMap.isInitialized) return
+
+        // Creating the markers and routes
+        for ((i, busStop) in busStops.withIndex()) {
+            createMarker(busStop)
+            if (i < busStops.size - 1) {
+                // Route between bus stops
+                val busStop1 = LatLng(busStops[i].latitude, busStops[i].longitude)
+                val busStop2 = LatLng(busStops[i + 1].latitude, busStops[i + 1].longitude)
+                getRoute(busStop1, busStop2)
+            }
+        }
+    }
+
+    private fun setupRecyclerView() {
+        binding.rvEstaciones.layoutManager = LinearLayoutManager(this)
+        adapter = BusStopAdapter(busStops, mMap, binding, busStopMarkers)
+        binding.rvEstaciones.adapter = adapter
+    }
+
+    private fun startSendingDataPeriodically() {
+        coroutineScope.launch {
+            while (true) {
+                // Ejecutar la tarea en un hilo IO
+                withContext(Dispatchers.IO) {
+                    sendLatitudeLongitude(currentLocation.latitude, currentLocation.longitude) // Reemplaza con tus coordenadas reales
+                }
+
+                // Esperar 5 segundos
+                delay(5000)
+            }
+        }
+    }
+
+    private suspend fun sendLatitudeLongitude(latitude: Double, longitude: Double) {
+        try {
+            val response = ApiHelper().prepareApi().postLatitudeLongitude(latitude, longitude)
+            if (response.isSuccessful) {
+                Log.d("API Response", "Datos enviados correctamente")
+            } else {
+                Log.e("API Error", "Error al enviar datos: ${response.code()} ${response.message()}")
+            }
+        } catch (e: Exception) {
+            Log.e("API Error", "Excepción: ${e.message}")
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        coroutineScope.cancel() // Cancelar las coroutines cuando la actividad se destruye
     }
 
     /**
@@ -116,32 +204,8 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
             mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLocation, 16f))
         }
 
-        //Creating the markers
-        for ((i, busStop) in busStops.withIndex()) {
-            createMarker(busStop)
-            if (i < busStops.size - 1)
-            {
-                // Distancia y tiempo entre 2 puntos
-//                getDistanceAndTime(busStops[i], busStops[i+1])
-                // Dibujo de ruta
-                val busStop1 = LatLng(busStops[i].latitude, busStops[i].longitude)
-                val busStop2 = LatLng(busStops[i+1].latitude, busStops[i+1].longitude)
-                getRoute(busStop1, busStop2)
-            }
-            else {
-                // Distancia y tiempo entre 2 puntos
-//                getDistanceAndTime(busStops[i], busStops[0])
-                // Dibujo de ruta
-                val busStop1 = LatLng(busStops[i].latitude, busStops[i].longitude)
-                val busStop2 = LatLng(busStops[0].latitude, busStops[0].longitude)
-                getRoute(busStop1, busStop2)
-            }
-        }
 
         mMap.setInfoWindowAdapter(CustomInfoWindowAdapter(this))
-
-        // Start the travel
-        setupRecyclerView(mMap)
 
         // Show and hide all the stations
         btnLocation = findViewById(R.id.location_button)
@@ -176,8 +240,6 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
             }
 
         })
-
-
     }
 
     // Distance between two points
@@ -267,12 +329,6 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         })
     }
 
-    private fun setupRecyclerView(mMap: GoogleMap) {
-        binding.rvEstaciones.layoutManager = LinearLayoutManager(this)
-        adapter = BusStopAdapter(busStops,mMap,binding, busStopMarkers)
-        binding.rvEstaciones.adapter = adapter
-    }
-
     fun filtrar (texto: String) {
         val listaFiltrada = ArrayList<BusStop>()
 
@@ -289,7 +345,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
     private fun createMarker(busStop: BusStop) {
         val location = LatLng(busStop.latitude, busStop.longitude)
         val bitmap = BitmapFactory.decodeResource(this.resources, R.mipmap.ic_bus_station)
-        val resizedBitmap = Bitmap.createScaledBitmap(bitmap, 100, 100, false)
+        val resizedBitmap = Bitmap.createScaledBitmap(bitmap, 5, 5, false)
         val markerIcon = BitmapDescriptorFactory.fromBitmap(resizedBitmap)
         val marker = mMap.addMarker(
             MarkerOptions()

@@ -1,0 +1,37 @@
+doctype html
+html(lang='en')
+  head
+    meta(charset='UTF-8')
+    meta(name='viewport' content='width=device-width, initial-scale=1.0')
+    link(rel='stylesheet' href='../stylesheets/usuario.css')
+    link(rel='preconnect' href='https://fonts.googleapis.com')
+    link(rel='preconnect' href='https://fonts.gstatic.com' crossorigin)
+    link(href='https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap' rel='stylesheet')
+    title Conductor
+  body
+    header
+      .logo
+        img(src='../icons/location.svg' alt='Logo')
+        span Nintrip
+      .nav
+        a(href='index.html') Inicio
+        a(href='./pasajero.html') Pasajero
+        a(href='./conductor.html') Conductor
+        a.button-login(href='./login.html')
+          p Inicio de sesión
+          img(src='../icons/Vector.svg' alt='Flecha')
+    section
+      article.title-section
+        .titles
+          h1.grey
+            | Guía de usuario 
+            br
+            | conductor
+          br
+          span
+            | En la parte inferior encontraras una breve guía sobre como debes de usar 
+            br
+            | la aplicación siendo un
+            |                     usuario conductor
+        div
+          img(src='../images/home.png' alt='Home image')

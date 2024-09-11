@@ -15,7 +15,7 @@ import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.Marker
 
 class BusStopAdapter(
-    private var listaStations: ArrayList<BusStop> = ArrayList(),
+    private var listaStations: List<BusStop>,
     private var mMap: GoogleMap,
     private var binding: ActivityMapsBinding,
     private var busStopMarkers: MutableMap<BusStop, Marker>

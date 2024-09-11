@@ -5,5 +5,4 @@ data class LineInfo(
     val name: String,
     val description: String,
     val color: Long,
-    val busStops: List<BusStop>
 )
