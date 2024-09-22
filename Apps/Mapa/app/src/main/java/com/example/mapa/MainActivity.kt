@@ -10,8 +10,8 @@ import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import com.example.mapa.interfaces.ApiHelper
 import com.example.mapa.recoveryPassword.RecoveryPasswordActivity
+import com.example.pasajero.interfaces.ApiHelper
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
@@ -52,6 +52,8 @@ class MainActivity : AppCompatActivity() {
 
         // When the login is success
         btnLogin.setOnClickListener {
+            val intent = Intent(this, TransportInformationActivity::class.java)
+            startActivity(intent)
             //login()
         }
     }
@@ -78,7 +80,7 @@ class MainActivity : AppCompatActivity() {
                 if (userInfo != null) {
                     Log.d("Login response", "Datos de usuario: $userInfo")
                     val intent = Intent(this, TransportInformationActivity::class.java)
-                    intent.putExtra("User data", userInfo, 0)
+                    //intent.putExtra("User data", userInfo, 0)
                     startActivity(intent)
                 }
             }

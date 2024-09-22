@@ -1,9 +1,11 @@
-package com.example.mapa.interfaces
+package com.example.pasajero.interfaces
 
 import android.util.Log
+import com.example.mapa.interfaces.ApiService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
@@ -17,7 +19,7 @@ class ApiHelper {
     * */
     // Prepare stm
     fun prepareApi(): ApiService {
-        val baseUrl = "https://nintrip.lat/api/"
+        val baseUrl = "https://chuchu-backend-sdhfdsksuq-vp.a.run.app/api/"
         val retrofit: Retrofit by lazy {
             Retrofit.Builder()
                 .baseUrl(baseUrl)
@@ -37,9 +39,11 @@ class ApiHelper {
             try {
                 val response: Response<T> = serviceCall()
                 if (response.isSuccessful) {
-                    processResponse(response)
-                    // Handle successful login (e.g., navigate to next activity)
-                    Log.d("Response", "Datos recibidos correctamente")
+                    withContext(Dispatchers.Main) {
+                        processResponse(response)
+                        // Handle successful login (e.g., navigate to next activity)
+                        Log.d("Response", "Datos recibidos correctamente")
+                    }
                 } else {
                     // Handle error in login response (e.g., show error message)
                     Log.d("Response", "Error en la respuesta: ${response.code()}")

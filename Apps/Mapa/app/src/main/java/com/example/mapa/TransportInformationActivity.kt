@@ -9,7 +9,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import com.example.mapa.interfaces.ApiHelper
+import com.example.pasajero.interfaces.ApiHelper
 
 
 class TransportInformationActivity : AppCompatActivity() {
@@ -59,15 +59,15 @@ class TransportInformationActivity : AppCompatActivity() {
 
 
         //Setting the values to the xml
-        titleTransportType.text = myTransportInfo.name + "\n" + myTransportInfo.linesTransport[0].name
-        titleTransportRoute.text = myTransportInfo.linesTransport[0].description
-        titleTransportRoute.setBackgroundColor(myTransportInfo.linesTransport[0].color.toInt())
+//        titleTransportType.text = myTransportInfo.name + "\n" + myTransportInfo.linesTransport[0].name
+//        titleTransportRoute.text = myTransportInfo.linesTransport[0].description
+//        titleTransportRoute.setBackgroundColor(myTransportInfo.linesTransport[0].color.toInt())
 
         // Start the tour
         btnStart.setOnClickListener {
             val intent = Intent (this, MapaActivity::class.java)
             //Pass the busStop to the map
-            intent.putExtra("busStops", ArrayList(myTransportInfo.linesTransport[0].busStops))
+            //intent.putExtra("busStops", ArrayList(myTransportInfo.linesTransport[0].busStops))
             startActivity(intent)
         }
     }
