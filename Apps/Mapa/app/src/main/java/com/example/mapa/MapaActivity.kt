@@ -36,6 +36,12 @@ import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.MarkerOptions
 import com.google.android.gms.maps.model.PolylineOptions
 import com.google.maps.android.PolyUtil
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -52,6 +58,7 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
     private var busStopMarkers: MutableMap<BusStop, Marker> = mutableMapOf<BusStop, Marker>()
     private lateinit var directionsAPI: GoogleDirectionsApi
     private lateinit var waypoints: List<LatLng>
+    private lateinit var coroutineScope: CoroutineScope
 
     companion object {
         const val REQUEST_CODE_LOCATION = 0
@@ -79,6 +86,11 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
         //routeID = intent.getIntExtra("routeID",0)
         val service = ApiHelper().prepareApi()
         fetchBusStops(service)
+        // Configurar CoroutineScope
+        coroutineScope = CoroutineScope(Dispatchers.Main + Job())
+
+        // Llamar a la función para enviar datos periódicamente
+        startSendingDataPeriodically()
 
         val retrofit = Retrofit.Builder()
             .baseUrl("https://maps.googleapis.com/maps/api/")
@@ -198,6 +210,46 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
             .build()
 
         mMap.animateCamera(CameraUpdateFactory.newCameraPosition(cameraPosition))
+    }
+
+    private fun startSendingDataPeriodically() {
+        coroutineScope.launch {
+            while (true) {
+                // Ejecutar la tarea en un hilo IO
+                withContext(Dispatchers.IO) {
+                    sendLatitudeLongitude(currentLocation.latitude, currentLocation.longitude) // Reemplaza con tus coordenadas reales
+                }
+
+                // Esperar 5 segundos
+                delay(5000)
+            }
+        }
+    }
+    private suspend fun sendLatitudeLongitude(latitude: Double, longitude: Double) {
+        try {
+            Log.d("Transport My Location", "$latitude")
+            Log.d("Transport My Location", "$longitude")
+
+//            // Format the latitude and longitude to 10 decimal places
+//            val formattedLatitude = String.format("%.10f", latitude)
+//            val formattedLongitude = String.format("%.10f", longitude)
+//
+//            // Now convert the formatted strings to floats if needed
+//            val latitudeDouble = formattedLatitude.toDouble()
+//            val longitudeDouble = formattedLongitude.toDouble()
+//
+//            Log.d("Transport My Location", "$latitudeDouble")
+//            Log.d("Transport My Location", "$longitudeDouble")
+
+            val response = ApiHelper().prepareApi().postLatitudeLongitude(latitude, longitude)
+            if (response.isSuccessful) {
+                Log.d("API Response", "Datos enviados correctamente")
+            } else {
+                Log.e("API Error", "Error al enviar datos: ${response.code()} ${response.message()}")
+            }
+        } catch (e: Exception) {
+            Log.e("API Error", "Excepción: ${e.message}")
+        }
     }
 
     /**
@@ -372,7 +424,10 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
             fusedLocationProviderClient.lastLocation.addOnSuccessListener(this) { location ->
                 if (location != null) {
                     lastLocation = location
-                    currentLocation = LatLng(location.latitude, location.longitude)
+                    currentLocation = LatLng(
+                        String.format("%.10f", location.latitude).toDouble(),
+                        String.format("%.10f", location.longitude).toDouble()
+                    )
                     mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLocation, 16f))
                 }
             }
@@ -418,7 +473,10 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
                 fusedLocationProviderClient.lastLocation.addOnSuccessListener(this) { location ->
                     if (location != null) {
                         lastLocation = location
-                        currentLocation = LatLng(location.latitude, location.longitude)
+                        currentLocation = LatLng(
+                            String.format("%.10f", location.latitude).toDouble(),
+                            String.format("%.10f", location.longitude).toDouble()
+                        )
                         mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLocation, 16f))
                     }
                 }

@@ -1,6 +1,7 @@
 package com.example.pasajero.interfaces
 
 import com.example.pasajero.BusStop
+import com.example.pasajero.ConductorLocation
 import com.example.pasajero.LineInfo
 import com.example.pasajero.TransportInfo
 import retrofit2.Call
@@ -22,10 +23,7 @@ interface ApiService {
     @POST("data/stop/list/{idRoute}")
     suspend fun getBusStopsInfo(@Path("idRoute") idRoute: Int): Response<List<BusStop>>
     @POST("location/register/{latitude}/{longitude}")
-    suspend fun postLatitudeLongitude(
-        @Path("latitude") latitude: Double,
-        @Path("longitude") longitude: Double
-    ): Response<Unit>
+    suspend fun getLatitudeLongitude(): Response<List<ConductorLocation>>
 
 }
 

@@ -59,4 +59,5 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
     implementation(libs.places)
     implementation (libs.android.maps.utils)
+    implementation("com.squareup.okhttp3:okhttp:4.9.3")
 }
