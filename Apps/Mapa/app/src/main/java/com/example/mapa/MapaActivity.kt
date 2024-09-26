@@ -8,6 +8,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.location.Location
 import android.os.Bundle
+import android.os.Looper
 import android.util.Log
 import android.widget.ImageView
 import android.widget.Toast
@@ -16,15 +17,22 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.example.mapa.databinding.ActivityMapaTransporteBinding
+import com.example.mapa.interfaces.ApiService
+import com.example.pasajero.interfaces.ApiHelper
 import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
+import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MapStyleOptions
+import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.MarkerOptions
 import com.google.android.gms.maps.model.PolylineOptions
 import com.google.maps.android.PolyUtil
@@ -40,14 +48,17 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var mMap: GoogleMap
     private lateinit var binding: ActivityMapaTransporteBinding
     private lateinit var btnLocation: ImageView
-    private var busStops = ArrayList<BusStop>()
+    private var busStops: List<BusStop> = listOf()
+    private var busStopMarkers: MutableMap<BusStop, Marker> = mutableMapOf<BusStop, Marker>()
     private lateinit var directionsAPI: GoogleDirectionsApi
     private lateinit var waypoints: List<LatLng>
+
     companion object {
         const val REQUEST_CODE_LOCATION = 0
     }
     private lateinit var fusedLocationProviderClient: FusedLocationProviderClient
     private lateinit var lastLocation: Location
+    private var currentLocation: LatLng = LatLng(0.0,0.0)
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -60,15 +71,14 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
         val mapFragment = supportFragmentManager
             .findFragmentById(R.id.map) as SupportMapFragment
         mapFragment.getMapAsync(this)
-
+        // Construct a FusedLocationProviderClient
         fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this)
-        lastLocation = Location("User location")
-        /**
-         * Getting all the bus stations of the line selected
-         */
-        busStops = intent.getSerializableExtra("busStops") as ArrayList<BusStop>
-
         btnLocation = findViewById(R.id.location_button)
+        // Get all the busStops from the line selected
+        // api/data/stop/list/idRoute
+        //routeID = intent.getIntExtra("routeID",0)
+        val service = ApiHelper().prepareApi()
+        fetchBusStops(service)
 
         val retrofit = Retrofit.Builder()
             .baseUrl("https://maps.googleapis.com/maps/api/")
@@ -81,6 +91,113 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
 //            LatLng(19.505189627612836, -99.15048185099594)
         )
 
+
+
+
+
+
+
+        // Add this in onCreate
+        val locationRequest = LocationRequest.create().apply {
+            interval = 10000 // 10 seconds
+            fastestInterval = 5000 // 5 seconds
+            priority = LocationRequest.PRIORITY_HIGH_ACCURACY
+        }
+
+        val locationCallback = object : LocationCallback() {
+            override fun onLocationResult(locationResult: LocationResult) {
+                locationResult.locations.forEach { location ->
+                    updateCameraPosition(location)
+                }
+            }
+        }
+
+// Start location updates
+        if (ActivityCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            // TODO: Consider calling
+            //    ActivityCompat#requestPermissions
+            // here to request the missing permissions, and then overriding
+            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+            //                                          int[] grantResults)
+            // to handle the case where the user grants the permission. See the documentation
+            // for ActivityCompat#requestPermissions for more details.
+            return
+        }
+        fusedLocationProviderClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper())
+
+    }
+
+    private fun fetchBusStops(service: ApiService){
+        ApiHelper().getDataFromDB(
+            serviceCall = { service.getBusStopsInfo(60001) }, // Pasamos la función que hace la solicitud
+            processResponse = { response ->
+                val busStopsInfo = response.body()
+                if (busStopsInfo != null) {
+                    Log.d("Transport response", "Datos de transporte: $busStopsInfo")
+                    busStops = busStopsInfo
+                    runOnUiThread {
+                        setupMapMarkersAndRoutes()
+                    }
+                }
+            }
+        )
+    }
+
+    private fun setupMapMarkersAndRoutes() {
+        if (!::mMap.isInitialized) return
+
+        // Creating the markers and routes
+        for ((i, busStop) in busStops.withIndex()) {
+            createMarker(busStop)
+            if (i < busStops.size - 1) {
+                // Route between bus stops
+                val busStop1 = LatLng(busStops[i].latitude, busStops[i].longitude)
+                val busStop2 = LatLng(busStops[i + 1].latitude, busStops[i + 1].longitude)
+                getRoute(busStop1, busStop2)
+            }
+        }
+    }
+
+    // Add a marker
+    private fun createMarker(busStop: BusStop) {
+        val location = LatLng(busStop.latitude, busStop.longitude)
+        val bitmap = BitmapFactory.decodeResource(this.resources, R.mipmap.ic_bus_station)
+        val resizedBitmap = Bitmap.createScaledBitmap(bitmap, 100, 100, false)
+        val markerIcon = BitmapDescriptorFactory.fromBitmap(resizedBitmap)
+        val marker = mMap.addMarker(
+            MarkerOptions()
+                .position(location)
+                .title(busStop.name)
+                .icon(markerIcon)
+        )
+        if (marker != null) {
+            busStopMarkers[busStop] = marker
+        }
+    }
+
+    private fun updateLocationOnMap(location: Location) {
+        currentLocation = LatLng(location.latitude, location.longitude)
+
+        // Move the camera to follow the user's location
+        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLocation, 16f))
+    }
+
+    private fun updateCameraPosition(location: Location) {
+        val cameraPosition = CameraPosition.Builder()
+            .target(LatLng(location.latitude, location.longitude))  // Set the new position
+            .zoom(19.4f)  // Set zoom level
+            .bearing(location.bearing)  // Rotate the camera to match the user’s bearing
+            .tilt(45f)  // Tilt for a semi-3D view
+            .build()
+
+        mMap.animateCamera(CameraUpdateFactory.newCameraPosition(cameraPosition))
     }
 
     /**
@@ -101,10 +218,19 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
 
         enableLocation()
 
+        btnLocation.setOnClickListener{
+            // Check if currentLocation has been updated from its default value (LatLng(0.0, 0.0))
+            if (currentLocation.latitude != 0.0 && currentLocation.longitude != 0.0) {
+                mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLocation, 16f))
+            } else {
+                Toast.makeText(this, "Current location is not available yet.", Toast.LENGTH_SHORT).show()
+            }
+        }
+
         // Validate the range of the location with the principal station
         val busBase = Location("Bus Base")
-        busBase.latitude = busStops[0].latitude
-        busBase.longitude = busStops[0].longitude
+//        busBase.latitude = busStops[0].latitude
+//        busBase.longitude = busStops[0].longitude
 //        if (!isWithinDistance(busBase , 20f)){
 //            Log.e("Direccion", "Dentro del if")
 //            showAlertDialog(this)
@@ -116,31 +242,9 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
                     LatLng(
                         lastLocation.latitude,
                         lastLocation.longitude
-                    ), 16f
+                    ), 19.4f
                 )
             )
-        }
-
-        //Creating the markers
-        for ((i, busStop) in busStops.withIndex()) {
-            createMarker(busStop.latitude, busStop.longitude, busStop.name)
-            if (i < busStops.size - 1)
-            {
-                // Distancia y tiempo entre 2 puntos
-//                getDistanceAndTime(busStops[i], busStops[i+1])
-                // Dibujo de ruta
-                val busStop1 = LatLng(busStops[i].latitude, busStops[i].longitude)
-                val busStop2 = LatLng(busStops[i+1].latitude, busStops[i+1].longitude)
-                getRoute(busStop1, busStop2)
-            }
-            else {
-                // Distancia y tiempo entre 2 puntos
-//                getDistanceAndTime(busStops[i], busStops[0])
-                // Dibujo de ruta
-                val busStop1 = LatLng(busStops[i].latitude, busStops[i].longitude)
-                val busStop2 = LatLng(busStops[0].latitude, busStops[0].longitude)
-                getRoute(busStop1, busStop2)
-            }
         }
     }
     // Alert
@@ -224,7 +328,7 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
             "${origin.latitude},${origin.longitude}",
             "${destination.latitude},${destination.longitude}",
             apiKey,
-            "driving",
+            "transit",
 //            waypoints = waypointsStr
         )
 
@@ -252,20 +356,6 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
         })
     }
 
-    // Add a marker
-    private fun createMarker(latitude: Double, longitude: Double, name: String) {
-        val location = LatLng(latitude, longitude)
-        val bitmap = BitmapFactory.decodeResource(this.resources, R.mipmap.ic_bus_station)
-        val resizedBitmap = Bitmap.createScaledBitmap(bitmap, 100, 100, false)
-        val markerIcon = BitmapDescriptorFactory.fromBitmap(resizedBitmap)
-        mMap.addMarker(
-            MarkerOptions()
-                .position(location)
-                .title(name)
-                .icon(markerIcon)
-        )
-    }
-
     // Metodo para saber si el permiso "FINE LOCATION" esta aceptado o no
     private fun isLocationPermissionGranted() = ContextCompat.checkSelfPermission(
         this,
@@ -282,8 +372,8 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
             fusedLocationProviderClient.lastLocation.addOnSuccessListener(this) { location ->
                 if (location != null) {
                     lastLocation = location
-                    val currentLatLong = LatLng(location.latitude, location.longitude)
-                    mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLatLong, 16f))
+                    currentLocation = LatLng(location.latitude, location.longitude)
+                    mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLocation, 16f))
                 }
             }
 
@@ -328,8 +418,8 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
                 fusedLocationProviderClient.lastLocation.addOnSuccessListener(this) { location ->
                     if (location != null) {
                         lastLocation = location
-                        val currentLatLong = LatLng(location.latitude, location.longitude)
-                        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLatLong, 16f))
+                        currentLocation = LatLng(location.latitude, location.longitude)
+                        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLocation, 16f))
                     }
                 }
             } else {

@@ -12,8 +12,11 @@ import android.text.Editable
 import android.text.TextWatcher
 import android.util.Log
 import android.view.View
+import android.widget.ArrayAdapter
 import android.widget.ImageView
+import android.widget.ListView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
@@ -25,13 +28,26 @@ import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MarkerOptions
 import com.example.pasajero.databinding.ActivityMapsBinding
+import com.example.pasajero.interfaces.ApiHelper
+import com.example.pasajero.interfaces.ApiService
+import com.example.pasajero.interfaces.CustomInfoWindowAdapter
+import com.example.pasajero.interfaces.DirectionsResponse
+import com.example.pasajero.interfaces.GoogleDirectionsApi
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.MapStyleOptions
 import com.google.android.gms.maps.model.Marker
+import com.google.android.gms.maps.model.Polyline
 import com.google.android.gms.maps.model.PolylineOptions
 import com.google.maps.android.PolyUtil
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -45,11 +61,13 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var btnLocation: ImageView
     private lateinit var adapter: BusStopAdapter
     private lateinit var stationsButton: ImageView
-    private var busStops = ArrayList<BusStop>()
+    private var routeID: Int = 0
+    private var busStops: List<BusStop> = listOf()
     private lateinit var directionsAPI: GoogleDirectionsApi
     private lateinit var waypoints: List<LatLng>
     private var busStopMarkers: MutableMap<BusStop, Marker> = mutableMapOf<BusStop, Marker>()
-    //private val busStopMarkers = mutableMapOf<BusStop, Marker>()
+    private lateinit var coroutineScope: CoroutineScope
+    private val polylines: MutableList<Polyline> = mutableListOf()
 
     //Variables to ask for the location permission
     companion object{
@@ -57,7 +75,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
     }
     private lateinit var fusedLocationProviderClient: FusedLocationProviderClient
     private lateinit var lastLocation: Location
-    private lateinit var currentLocation: LatLng
+    private var currentLocation: LatLng = LatLng(0.0,0.0)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -73,23 +91,223 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         // Construct a FusedLocationProviderClient.
         fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this)
 
-        /**
-         * Getting all the bus stations of the line selected
-         */
-        busStops = intent.getSerializableExtra("busStops") as ArrayList<BusStop>
         btnLocation = findViewById(R.id.location_button)
+        // Get all the busStops from the line selected
+        // api/data/stop/list/idRoute
+        routeID = intent.getIntExtra("routeID",0)
+        val service = ApiHelper().prepareApi()
+        fetchBusStops(service)
+        // Configurar CoroutineScope
+        coroutineScope = CoroutineScope(Dispatchers.Main + Job())
+
+        // Llamar a la función para enviar datos periódicamente
+        startSendingDataPeriodically()
 
         val retrofit = Retrofit.Builder()
             .baseUrl("https://maps.googleapis.com/maps/api/")
             .addConverterFactory(GsonConverterFactory.create())
             .build()
         directionsAPI = retrofit.create(GoogleDirectionsApi::class.java)
-        waypoints = listOf(
-            LatLng(19.505161688551212, -99.15055914014806),
-//            LatLng(19.505189627612836, -99.15048185099594)
+        waypoints = listOf()
+    }
+
+    private fun fetchBusStops(service: ApiService){
+        ApiHelper().getDataFromDB(
+            serviceCall = { service.getBusStopsInfo(routeID) }, // Pasamos la función que hace la solicitud
+            processResponse = { response ->
+                val busStopsInfo = response.body()
+                if (busStopsInfo != null) {
+                    Log.d("Transport response", "Datos de transporte: $busStopsInfo")
+                    busStops = busStopsInfo
+//                    busStops = listOf(
+//                        BusStop(1,"Montevideo", 19.493652243084295, -99.14648968274983),
+//                        BusStop(2, "Otalavo", 19.495282977565214, -99.14658271039266),
+//                        BusStop(3,"Wilfrido Massieu", 19.499001984126647, -99.14804302526532),
+//                        BusStop(4, "Politécnico Oriente", 19.50018020355366, -99.14849363636007),
+//                        BusStop(5, "Av Torres", 19.504723274442018, -99.15029433857745),
+//                        BusStop(6, "Av Central", 19.505893273106125, -99.14835222461627),
+//                        BusStop(7, "Juan de Dios Bátiz", 19.50629152440862, -99.14680096929754),
+//                        BusStop(8, "ESCOM", 19.50549012088718, -99.14542972730726),
+//                        BusStop(9, "Ma. Luisa Stampa Ortigoza", 19.504963890866264, -99.1436944408264),
+//                        BusStop(10, "Central de Inteligencia de Cómputo", 19.50465075568148, -99.14219163994267),
+//                        BusStop(11, "Cancha de Entrenamiento Pieles Rojas", 19.504189745349223, -99.13945605909623),
+//                        BusStop(12,"Edif. 11 ESIA", 19.503776833138303, -99.13706355059324),
+//                        BusStop(13, "Manuel de Anda y Barredo", 19.503566177884437, -99.1358099112321),
+//                        BusStop(14,"Edif. 8 ESIQIE", 19.502375940637112, -99.135752104819),
+//                        BusStop(15,"Edif. 6 ESIQIE", 19.501081468018185, -99.13600022103938),
+//                        BusStop(16,"Edif. 4 ESIME", 19.499811455158326, -99.13624965881291),
+//                        BusStop(17,"Edif. 2 ESIME", 19.498540415541733, -99.13649140986477),
+//                        BusStop(18,"Edif. 1 ESIME", 19.497790158201767, -99.13664062421346),
+//                        BusStop(19,"Edif. 1 ESIME", 19.497761542197438, -99.13646064358117),
+//                        BusStop(20,"Edif. 2 ESIME", 19.498507036578488,-99.13630786418547),
+//                        BusStop(21,"Edif. 4 ESIME", 19.499789712695986, -99.13605993626295),
+//                        BusStop(22,"Edif. 6 ESIQIE", 19.501048977199606, -99.13582085865777),
+//                        BusStop(23,"Edif. 8 ESIQIE", 19.502342079193873, -99.13557448148346),
+//                        BusStop(24,"Edif. 10 ESIA", 19.5038802007935, -99.13577003024044),
+//                        BusStop(25,"Edif. 11 ESIA", 19.5040395540449, -99.13691071038902),
+//                        BusStop(26,"Biblioteca ESIA", 19.504288859244497, -99.13841049432415),
+//                        BusStop(27,"Secretaría de Extensión y Difusión", 19.504520067025705, -99.13973006902111),
+//                        BusStop(28,"Central de Inteligencia de Cómputo", 19.504939377645854, -99.1421400067882),
+//                        BusStop(29,"Ma. Luisa Stampa Ortigoza", 19.50511408286138, -99.14318104068121),
+//                        BusStop(30,"ESCOM", 19.5055394802009, -99.14510976799576),
+//                        BusStop(31,"Av. Juan de Dios Bátiz", 19.506459568806815, -99.14648967979731),
+//                        BusStop(32,"J. Othón de Medizabal", 19.50450859749287, -99.15116018472465),
+//                        BusStop(33,"Politécnico", 19.500535947911718, -99.14959530848424),
+//                    )
+                    runOnUiThread {
+                        setupMapMarkersAndRoutes()
+                        setupRecyclerView()  // Ensure RecyclerView is updated after fetching bus stops
+                    }
+                }
+            }
+        )
+    }
+
+    private fun setupMapMarkersAndRoutes() {
+        if (!::mMap.isInitialized) return
+
+        // Clear old polylines
+        clearOldRoutes()
+        var idNext:Int = 0
+        var busStopOrigin: LatLng = LatLng(19.497761748259805,-99.13647282618467)
+        var busStopDestination: LatLng = LatLng(19.495378901114236,-99.13618018883543)
+        // Creating the markers and routes
+        for ((i, busStop) in busStops.withIndex()) {
+            createMarker(busStop)
+            waypoints = waypoints + LatLng(busStop.latitude, busStop.longitude)
+            //val currentIdNext = busStop.idNext
+//            if (currentIdNext > idNext) {
+//                idNext = currentIdNext
+//                busStopDestination = LatLng(busStops[i].latitude, busStops[i].longitude)
+//            }
+//            else { busStopOrigin = LatLng(busStops[i].latitude, busStops[i].longitude) }
+
+            if (i < busStops.size - 1) {
+                // Route between bus stops
+                val busStop1 = LatLng(busStops[i].latitude, busStops[i].longitude)
+                val busStop2 = LatLng(busStops[i + 1].latitude, busStops[i + 1].longitude)
+
+                getRoute(busStop1, busStop2)
+            }
+            //getRoute(busStop, busStopDestination)
+        }
+    }
+
+    private fun clearOldRoutes() {
+        // Remove all polylines from the map
+        for (polyline in polylines) {
+            polyline.remove()
+        }
+        // Clear the list
+        polylines.clear()
+    }
+
+    // Add a marker
+    private fun createMarker(busStop: BusStop) {
+        val location = LatLng(busStop.latitude, busStop.longitude)
+        val bitmap = BitmapFactory.decodeResource(this.resources, R.mipmap.ic_bus_station)
+        val resizedBitmap = Bitmap.createScaledBitmap(bitmap, 100, 100, false)
+        val markerIcon = BitmapDescriptorFactory.fromBitmap(resizedBitmap)
+        val marker = mMap.addMarker(
+            MarkerOptions()
+                .position(location)
+                .title(busStop.name)
+                .icon(markerIcon)
+        )
+        if (marker != null) {
+            busStopMarkers[busStop] = marker
+        }
+    }
+
+    // Route of two routes
+    private fun getRoute(origin: LatLng, destination: LatLng) {
+        val apiKey = getString(R.string.api_key)
+
+        val waypointsStr = waypoints.joinToString("|") { "${it.latitude},${it.longitude}" }
+
+        Log.e("Transport info", "Origin: $origin")
+        Log.e("Transport info", "Destination: $destination")
+
+
+        val call = directionsAPI.getDirections(
+            "${origin.latitude},${origin.longitude}",
+            "${destination.latitude},${destination.longitude}",
+            apiKey,
+            "driving",
+            //waypoints = waypointsStr
         )
 
+        call.enqueue(object : Callback<DirectionsResponse> {
+            override fun onResponse(call: Call<DirectionsResponse>, response: Response<DirectionsResponse>) {
+                if (response.isSuccessful) {
+                    val routes = response.body()?.routes
+                    if (routes != null && routes.isNotEmpty()) {
+                        val polyline = routes[0].overview_polyline?.points
+                        // Add logging here to check the polyline
+                        Log.d("Polyline", "Polyline points: $polyline")
+
+                        polyline?.let {
+                            val decodedPath = PolyUtil.decode(it)
+                            val newPolyline = mMap.addPolyline(
+                                PolylineOptions()
+                                    .addAll(decodedPath)
+                                    .color(android.graphics.Color.BLUE)
+                                    .width(10f)
+                                    .geodesic(true)
+                            )
+                            polylines.add(newPolyline)
+                        }
+                    } else {
+                        Log.e("DirectionsError", "No routes found in response")
+                    }
+                } else {
+                    Log.e("DirectionsError", "Response error: ${response.code()} - ${response.message()} - Body: ${response.errorBody()?.string()}")
+                }
+            }
+
+            override fun onFailure(call: Call<DirectionsResponse>, t: Throwable) {
+                Log.e("DirectionsError", "Failed to get route: ${t.message}")
+            }
+        })
     }
+
+    private fun setupRecyclerView() {
+        binding.rvEstaciones.layoutManager = LinearLayoutManager(this)
+        adapter = BusStopAdapter(busStops, mMap, binding, busStopMarkers)
+        binding.rvEstaciones.adapter = adapter
+    }
+
+    private fun startSendingDataPeriodically() {
+        coroutineScope.launch {
+            while (true) {
+                // Ejecutar la tarea en un hilo IO
+                withContext(Dispatchers.IO) {
+                    sendLatitudeLongitude(currentLocation.latitude, currentLocation.longitude) // Reemplaza con tus coordenadas reales
+                }
+
+                // Esperar 5 segundos
+                delay(5000)
+            }
+        }
+    }
+    private suspend fun sendLatitudeLongitude(latitude: Double, longitude: Double) {
+        try {
+            val response = ApiHelper().prepareApi().postLatitudeLongitude(latitude, longitude)
+            if (response.isSuccessful) {
+                Log.d("API Response", "Datos enviados correctamente")
+            } else {
+                Log.e("API Error", "Error al enviar datos: ${response.code()} ${response.message()}")
+            }
+        } catch (e: Exception) {
+            Log.e("API Error", "Excepción: ${e.message}")
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        coroutineScope.cancel() // Cancelar las coroutines cuando la actividad se destruye
+    }
+
 
     /**
      * Manipulates the map once available.
@@ -109,40 +327,34 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         mMap.uiSettings.isZoomControlsEnabled = true
 
         enableLocation()
-
-        //Log.d("MapsActivity", currentLocation.toString())
-
         btnLocation.setOnClickListener{
             mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLocation, 16f))
         }
+        // Control the search
+        findLocations()
 
-        //Creating the markers
-        for ((i, busStop) in busStops.withIndex()) {
-            createMarker(busStop)
-            if (i < busStops.size - 1)
-            {
-                // Distancia y tiempo entre 2 puntos
-//                getDistanceAndTime(busStops[i], busStops[i+1])
-                // Dibujo de ruta
-                val busStop1 = LatLng(busStops[i].latitude, busStops[i].longitude)
-                val busStop2 = LatLng(busStops[i+1].latitude, busStops[i+1].longitude)
-                getRoute(busStop1, busStop2)
-            }
-            else {
-                // Distancia y tiempo entre 2 puntos
-//                getDistanceAndTime(busStops[i], busStops[0])
-                // Dibujo de ruta
-                val busStop1 = LatLng(busStops[i].latitude, busStops[i].longitude)
-                val busStop2 = LatLng(busStops[0].latitude, busStops[0].longitude)
-                getRoute(busStop1, busStop2)
-            }
+
+        // Set custom InfoWindow adapter
+        val adapter = CustomInfoWindowAdapter(this, currentLocation, busStops)
+        mMap.setInfoWindowAdapter(adapter)
+
+        // Handle marker clicks
+        mMap.setOnMarkerClickListener { marker ->
+            marker.showInfoWindow() // Show the InfoWindow
+            true
         }
 
-        mMap.setInfoWindowAdapter(CustomInfoWindowAdapter(this))
+        // Handle InfoWindow clicks
+        mMap.setOnInfoWindowClickListener { marker ->
+            // Trigger action when user clicks the InfoWindow (e.g., find nearest bus stop)
+            val busStop = findBusStopForMarker(marker)
+            busStop?.let {
+                findNearestBusStop(marker) // Call your method to find nearest bus stop
+            }
+        }
+    }
 
-        // Start the travel
-        setupRecyclerView(mMap)
-
+    private fun findLocations(){
         // Show and hide all the stations
         btnLocation = findViewById(R.id.location_button)
         stationsButton = findViewById(R.id.showStations)
@@ -172,20 +384,21 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
             }
 
             override fun afterTextChanged(p0: Editable?) {
-                filtrar(p0.toString())
+                filtrate(p0.toString())
             }
 
         })
-
-
     }
+    private fun filtrate (text: String) {
+        val listaFiltrada = ArrayList<BusStop>()
 
-    // Distance between two points
-    fun isWithinDistance(busStop2: Location, minDistanceMeters: Float): Boolean {
-        // Calcular la distancia entre los dos puntos
-        val distance = lastLocation.distanceTo(busStop2)
-        // Verificar si la distancia es menor o igual a la distancia mínima deseada
-        return distance <= minDistanceMeters
+        busStops.forEach {
+            if (it.name.lowercase().contains(text.lowercase())) {
+                listaFiltrada.add(it)
+            }
+        }
+
+        adapter.filtrar(listaFiltrada)
     }
 
     // Convert location to string
@@ -228,33 +441,89 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
     }
 
-    // Route of two routes
-    private fun getRoute(origin: LatLng, destination: LatLng) {
+
+
+
+
+    // Helper function to find bus stop associated with the marker
+    private fun findBusStopForMarker(marker: Marker): BusStop? {
+        return busStops.find { busStop ->
+            busStopMarkers[busStop]?.position == marker.position
+        }
+    }
+    private fun findNearestBusStop(marker: Marker) {
+        var nearestBusStop: BusStop? = null
+        var minDistance = Float.MAX_VALUE
+
+        // Loop through all BusStops to find the nearest
+        for (busStop in busStops) {
+            val busStopLocation = Location("BusStop").apply {
+                latitude = busStop.latitude
+                longitude = busStop.longitude
+            }
+
+            val distance = busStopLocation.distanceTo(Location("CurrentLocation").apply {
+                latitude = currentLocation.latitude
+                longitude = currentLocation.longitude
+            })
+
+            if (distance < minDistance) {
+                minDistance = distance
+                nearestBusStop = busStop
+            }
+        }
+
+        // Check if a bus stop was found and handle the distance check
+        nearestBusStop?.let { busStop ->
+            // Define a threshold distance, say 50 meters, to determine if user is "at" the bus stop
+            val thresholdDistance = 50f  // Adjust threshold as needed
+
+            //fetchAndDisplayDirections(LatLng(busStop.latitude,busStop.longitude))
+
+            showRouteToDestination(busStop, marker)
+
+//            if (minDistance > thresholdDistance) {
+//                // User is far from the bus stop, prompt them to navigate to the bus stop first
+//                showBusStopDialog(busStop, minDistance)
+//            } else {
+//                // User is close enough to the bus stop, show the route to the final destination
+//                showRouteToDestination(busStop, marker)
+//            }
+        } ?: Toast.makeText(this, "No Bus Stops available", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun showBusStopDialog(busStop: BusStop, distance: Float) {
+        AlertDialog.Builder(this)
+            .setTitle("Ve a la estación más cercana")
+            .setMessage("La estación más cercana es '${busStop.name}', que está a ${distance.toInt()} metros de distancia. \nPor favor dirigete allá primero.")
+            .setNegativeButton("Okay", null)
+            .show()
+    }
+
+    private fun fetchAndDisplayDirections(destination: LatLng) {
+        val origin = currentLocation // User's current location
+
         val apiKey = getString(R.string.api_key)
-
-        val waypointsStr = waypoints.joinToString("|") { "${it.latitude},${it.longitude}" }
-
         val call = directionsAPI.getDirections(
             "${origin.latitude},${origin.longitude}",
             "${destination.latitude},${destination.longitude}",
             apiKey,
-            "driving",
-//            waypoints = waypointsStr
+            "driving"
         )
 
         call.enqueue(object : Callback<DirectionsResponse> {
             override fun onResponse(call: Call<DirectionsResponse>, response: Response<DirectionsResponse>) {
                 if (response.isSuccessful) {
-                    val polyline = response.body()?.routes?.get(0)?.overview_polyline?.points
-                    polyline?.let {
-                        val decodedPath = PolyUtil.decode(it)
-                        mMap.addPolyline(
-                            PolylineOptions()
-                            .addAll(decodedPath)
-                            .color(android.graphics.Color.BLUE)
-                            .width(10f) // Cambiar el ancho de la ruta
-                            .geodesic(true) // Usar una línea geodésica
-                        )
+                    val routes = response.body()?.routes
+                    if (!routes.isNullOrEmpty()) {
+                        val leg = routes[0].legs[0]
+                        val steps = leg.steps // Get the detailed steps
+
+                        // Now you can parse the steps and show them in a dialog or new screen
+                        val instructions = steps.map { it.html_instructions } // List of HTML instructions
+                        showDirectionsDialog(instructions)
+                    } else {
+                        Toast.makeText(this@MapsActivity, "No route found.", Toast.LENGTH_SHORT).show()
                     }
                 } else {
                     Log.e("DirectionsError", "Response error: ${response.code()} - ${response.message()}")
@@ -262,45 +531,51 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
             }
 
             override fun onFailure(call: Call<DirectionsResponse>, t: Throwable) {
-                Log.e("DirectionsError", "Failed to get route: ${t.message}")
+                Log.e("DirectionsError", "Failed to get directions: ${t.message}")
             }
         })
     }
 
-    private fun setupRecyclerView(mMap: GoogleMap) {
-        binding.rvEstaciones.layoutManager = LinearLayoutManager(this)
-        adapter = BusStopAdapter(busStops,mMap,binding, busStopMarkers)
-        binding.rvEstaciones.adapter = adapter
-    }
+    private fun showDirectionsDialog(instructions: List<String>) {
+        val dialogBuilder = android.app.AlertDialog.Builder(this)
+        dialogBuilder.setTitle("Directions")
 
-    fun filtrar (texto: String) {
-        val listaFiltrada = ArrayList<BusStop>()
+        // Convert HTML instructions to plain text
+        val plainTextInstructions = instructions.map { android.text.Html.fromHtml(it).toString() }
 
-        busStops.forEach {
-            if (it.name.lowercase().contains(texto.lowercase())) {
-                listaFiltrada.add(it)
-            }
+        // Create a simple ListView to display the instructions
+        val listView = ListView(this)
+        val adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, plainTextInstructions)
+        listView.adapter = adapter
+
+        dialogBuilder.setView(listView)
+        dialogBuilder.setPositiveButton("Close") { dialog, _ ->
+            dialog.dismiss()
         }
 
-        adapter.filtrar(listaFiltrada)
+        val dialog = dialogBuilder.create()
+        dialog.show()
     }
 
-    // Add a marker
-    private fun createMarker(busStop: BusStop) {
-        val location = LatLng(busStop.latitude, busStop.longitude)
-        val bitmap = BitmapFactory.decodeResource(this.resources, R.mipmap.ic_bus_station)
-        val resizedBitmap = Bitmap.createScaledBitmap(bitmap, 100, 100, false)
-        val markerIcon = BitmapDescriptorFactory.fromBitmap(resizedBitmap)
-        val marker = mMap.addMarker(
-            MarkerOptions()
-                .position(location)
-                .title(busStop.name)
-                .icon(markerIcon)
-        )
-        if (marker != null) {
-            busStopMarkers[busStop] = marker
-        }
+    private fun showRouteToDestination(busStop: BusStop, marker: Marker) {
+        // Clear old routes
+        clearOldRoutes()
+        // Replace this with the actual destination coordinates
+        val destinationLatLng = marker.position
+
+        // Now, get the route from the bus stop to the destination
+        getRoute(LatLng(busStop.latitude, busStop.longitude), destinationLatLng)
     }
+
+
+
+
+
+
+
+
+
+
 
     // Metodo para saber si el permiso "FINE LOCATION" esta aceptado o no
     private fun isLocationPermissionGranted() = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
@@ -356,6 +631,20 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
                 Toast.makeText(this, "Ve a ajustes para aceptar los permisos de localizacion", Toast.LENGTH_SHORT).show()
             }
             else -> {}
+        }
+    }
+
+    //Metodo para comprobar que los permisos siguen activos despues de que el usuario dejo la aplicacion en background
+    override fun onResumeFragments() {
+        super.onResumeFragments()
+        if (!::mMap.isInitialized) return
+        if (!isLocationPermissionGranted()) {
+            mMap.isMyLocationEnabled = false
+            Toast.makeText(
+                this,
+                "Ve a ajustes para aceptar los permisos de localizacion",
+                Toast.LENGTH_SHORT
+            ).show()
         }
     }
 

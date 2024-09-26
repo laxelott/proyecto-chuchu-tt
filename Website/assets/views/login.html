@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="../css/usuario.css">
+    <link rel="stylesheet" href="../stylesheets/login.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
@@ -30,16 +30,15 @@
         </div>
     </header>
     <section>
-        <article class="title-section">
-            <div class="titles">
-                <h1 class="grey">Guía de usuario <br>pasajero</h1>
-                <br>
-                <span>En la parte inferior encontraras una breve guía sobre como debes de usar <br>la aplicación siendo un
-                    usuario pasajero</span>
-            </div>
-            <div>
-                <img src="../img/home.png" alt="Home image">
-            </div>
+        <article>
+            <h1>Bienvenido</h1>
+            <form method="post">
+                <label for="name">Usuario</label>
+                <input type="text" name="name" id="name" placeholder="Ingresa tu usuario" >
+                <label for="password">Contraseña</label>
+                <input type="password" name="password" id="password" placeholder="Ingresa tu contraseña" >
+                <button type="submit">Iniciar sesión</button>
+            </form>
         </article>
     </section>
 </body>
