@@ -2,7 +2,6 @@ package com.example.mapa
 
 import android.content.Intent
 import android.os.Bundle
-import android.util.Log
 import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
@@ -11,9 +10,13 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.example.mapa.recoveryPassword.RecoveryPasswordActivity
-import com.example.pasajero.interfaces.ApiHelper
-import retrofit2.Retrofit
-import retrofit2.converter.gson.GsonConverterFactory
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import okhttp3.*
+import okio.IOException
+
 
 class MainActivity : AppCompatActivity() {
 
@@ -52,9 +55,7 @@ class MainActivity : AppCompatActivity() {
 
         // When the login is success
         btnLogin.setOnClickListener {
-            val intent = Intent(this, TransportInformationActivity::class.java)
-            startActivity(intent)
-            //login()
+            login()
         }
     }
 
@@ -69,22 +70,52 @@ class MainActivity : AppCompatActivity() {
             // Handle empty fields
             return
         }
+        else {
+            showProgress(true)
+            makePostRequest(user)
+        }
+    }
 
-        showProgress(true)
+    private fun makePostRequest(user: UserInfo) {
+        CoroutineScope(Dispatchers.IO).launch {
+            val client = OkHttpClient()
 
-        val service = ApiHelper().prepareApi()
-        ApiHelper().getDataFromDB<UserInfo>(
-            serviceCall = { service.login(user) }, // Pasamos la función que hace la solicitud
-            processResponse = { response ->
-                val userInfo = response.body()
-                if (userInfo != null) {
-                    Log.d("Login response", "Datos de usuario: $userInfo")
-                    val intent = Intent(this, TransportInformationActivity::class.java)
-                    //intent.putExtra("User data", userInfo, 0)
-                    startActivity(intent)
+            val formBody = FormBody.Builder()
+                .add("username", user.name)
+                .add("password", user.password)
+                .build()
+
+            val request = Request.Builder()
+                .url("https://chuchu-backend-sdhfdsksuq-vp.a.run.app/api/auth/authorize")
+                .post(formBody)
+                .build()
+
+            try {
+                // Execute the network request
+                val response = client.newCall(request).execute()
+
+                // Ensure you handle the response in the IO context
+                if (response.isSuccessful) {
+                    val responseBody = response.body?.string()
+
+                    // Switch back to the Main dispatcher for UI-related tasks
+                    withContext(Dispatchers.Main) {
+                        println("Response: $responseBody")
+                        // Start the next activity after a successful response
+                        val intent = Intent(this@MainActivity, TransportInformationActivity::class.java)
+                        startActivity(intent)
+                    }
+                } else {
+                    withContext(Dispatchers.Main) {
+                        println("POST request failed with response code: ${response.code}")
+                    }
+                }
+            } catch (e: IOException) {
+                withContext(Dispatchers.Main) {
+                    println("POST request failed: ${e.message}")
                 }
             }
-        )
+        }
     }
 
     private fun showProgress(show: Boolean) {

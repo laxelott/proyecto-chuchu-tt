@@ -68,6 +68,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
     private var busStopMarkers: MutableMap<BusStop, Marker> = mutableMapOf<BusStop, Marker>()
     private lateinit var coroutineScope: CoroutineScope
     private val polylines: MutableList<Polyline> = mutableListOf()
+    var ConductorLocationList: List<ConductorLocation> = listOf()
 
     //Variables to ask for the location permission
     companion object{
@@ -119,41 +120,6 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
                 if (busStopsInfo != null) {
                     Log.d("Transport response", "Datos de transporte: $busStopsInfo")
                     busStops = busStopsInfo
-//                    busStops = listOf(
-//                        BusStop(1,"Montevideo", 19.493652243084295, -99.14648968274983),
-//                        BusStop(2, "Otalavo", 19.495282977565214, -99.14658271039266),
-//                        BusStop(3,"Wilfrido Massieu", 19.499001984126647, -99.14804302526532),
-//                        BusStop(4, "Politécnico Oriente", 19.50018020355366, -99.14849363636007),
-//                        BusStop(5, "Av Torres", 19.504723274442018, -99.15029433857745),
-//                        BusStop(6, "Av Central", 19.505893273106125, -99.14835222461627),
-//                        BusStop(7, "Juan de Dios Bátiz", 19.50629152440862, -99.14680096929754),
-//                        BusStop(8, "ESCOM", 19.50549012088718, -99.14542972730726),
-//                        BusStop(9, "Ma. Luisa Stampa Ortigoza", 19.504963890866264, -99.1436944408264),
-//                        BusStop(10, "Central de Inteligencia de Cómputo", 19.50465075568148, -99.14219163994267),
-//                        BusStop(11, "Cancha de Entrenamiento Pieles Rojas", 19.504189745349223, -99.13945605909623),
-//                        BusStop(12,"Edif. 11 ESIA", 19.503776833138303, -99.13706355059324),
-//                        BusStop(13, "Manuel de Anda y Barredo", 19.503566177884437, -99.1358099112321),
-//                        BusStop(14,"Edif. 8 ESIQIE", 19.502375940637112, -99.135752104819),
-//                        BusStop(15,"Edif. 6 ESIQIE", 19.501081468018185, -99.13600022103938),
-//                        BusStop(16,"Edif. 4 ESIME", 19.499811455158326, -99.13624965881291),
-//                        BusStop(17,"Edif. 2 ESIME", 19.498540415541733, -99.13649140986477),
-//                        BusStop(18,"Edif. 1 ESIME", 19.497790158201767, -99.13664062421346),
-//                        BusStop(19,"Edif. 1 ESIME", 19.497761542197438, -99.13646064358117),
-//                        BusStop(20,"Edif. 2 ESIME", 19.498507036578488,-99.13630786418547),
-//                        BusStop(21,"Edif. 4 ESIME", 19.499789712695986, -99.13605993626295),
-//                        BusStop(22,"Edif. 6 ESIQIE", 19.501048977199606, -99.13582085865777),
-//                        BusStop(23,"Edif. 8 ESIQIE", 19.502342079193873, -99.13557448148346),
-//                        BusStop(24,"Edif. 10 ESIA", 19.5038802007935, -99.13577003024044),
-//                        BusStop(25,"Edif. 11 ESIA", 19.5040395540449, -99.13691071038902),
-//                        BusStop(26,"Biblioteca ESIA", 19.504288859244497, -99.13841049432415),
-//                        BusStop(27,"Secretaría de Extensión y Difusión", 19.504520067025705, -99.13973006902111),
-//                        BusStop(28,"Central de Inteligencia de Cómputo", 19.504939377645854, -99.1421400067882),
-//                        BusStop(29,"Ma. Luisa Stampa Ortigoza", 19.50511408286138, -99.14318104068121),
-//                        BusStop(30,"ESCOM", 19.5055394802009, -99.14510976799576),
-//                        BusStop(31,"Av. Juan de Dios Bátiz", 19.506459568806815, -99.14648967979731),
-//                        BusStop(32,"J. Othón de Medizabal", 19.50450859749287, -99.15116018472465),
-//                        BusStop(33,"Politécnico", 19.500535947911718, -99.14959530848424),
-//                    )
                     runOnUiThread {
                         setupMapMarkersAndRoutes()
                         setupRecyclerView()  // Ensure RecyclerView is updated after fetching bus stops
@@ -241,12 +207,12 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
             override fun onResponse(call: Call<DirectionsResponse>, response: Response<DirectionsResponse>) {
                 if (response.isSuccessful) {
                     val routes = response.body()?.routes
-                    if (routes != null && routes.isNotEmpty()) {
-                        val polyline = routes[0].overview_polyline?.points
+                    if (!routes.isNullOrEmpty()) {
+                        val polyline = routes[0].overview_polyline.points
                         // Add logging here to check the polyline
                         Log.d("Polyline", "Polyline points: $polyline")
 
-                        polyline?.let {
+                        polyline.let {
                             val decodedPath = PolyUtil.decode(it)
                             val newPolyline = mMap.addPolyline(
                                 PolylineOptions()
@@ -282,25 +248,25 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
             while (true) {
                 // Ejecutar la tarea en un hilo IO
                 withContext(Dispatchers.IO) {
-                    sendLatitudeLongitude(currentLocation.latitude, currentLocation.longitude) // Reemplaza con tus coordenadas reales
+                    getLatitudeLongitude()
                 }
-
-                // Esperar 5 segundos
-                delay(5000)
+                // Esperar 1 segundos
+                delay(1000)
             }
         }
     }
-    private suspend fun sendLatitudeLongitude(latitude: Double, longitude: Double) {
-        try {
-            val response = ApiHelper().prepareApi().postLatitudeLongitude(latitude, longitude)
-            if (response.isSuccessful) {
-                Log.d("API Response", "Datos enviados correctamente")
-            } else {
-                Log.e("API Error", "Error al enviar datos: ${response.code()} ${response.message()}")
+    private suspend fun getLatitudeLongitude() {
+        val service = ApiHelper().prepareApi()
+        ApiHelper().getDataFromDB(
+            serviceCall = { service.getLatitudeLongitude() }, // Pasamos la función que hace la solicitud
+            processResponse = { response ->
+                val ConductorLocationResponse = response.body()
+                if (ConductorLocationResponse != null) {
+                    Log.d("Transport response", "Ubicacion de conductores: $ConductorLocationResponse")
+                    ConductorLocationList = ConductorLocationResponse
+                }
             }
-        } catch (e: Exception) {
-            Log.e("API Error", "Excepción: ${e.message}")
-        }
+        )
     }
 
     override fun onDestroy() {
@@ -349,7 +315,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
             // Trigger action when user clicks the InfoWindow (e.g., find nearest bus stop)
             val busStop = findBusStopForMarker(marker)
             busStop?.let {
-                findNearestBusStop(marker) // Call your method to find nearest bus stop
+                findNearestBusStop(marker, busStops) // Call your method to find nearest bus stop
             }
         }
     }
@@ -451,7 +417,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
             busStopMarkers[busStop]?.position == marker.position
         }
     }
-    private fun findNearestBusStop(marker: Marker) {
+    private fun findNearestBusStop(marker: Marker, BusStops: List<BusStop>) {
         var nearestBusStop: BusStop? = null
         var minDistance = Float.MAX_VALUE
 
@@ -474,13 +440,40 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         }
 
         // Check if a bus stop was found and handle the distance check
-        nearestBusStop?.let { busStop ->
+        nearestBusStop?.let { busStopOrigin ->
             // Define a threshold distance, say 50 meters, to determine if user is "at" the bus stop
             val thresholdDistance = 50f  // Adjust threshold as needed
 
             //fetchAndDisplayDirections(LatLng(busStop.latitude,busStop.longitude))
+            var busStopsOD: List<BusStop> = listOf()
+            var flag: Boolean = false
+            for ((i, busStop) in BusStops.withIndex()){
+                Log.d("Transport info", "Paso 1")
+                if (LatLng(busStop.latitude,busStop.longitude) == LatLng(busStopOrigin.latitude,busStopOrigin.longitude))
+                {
+                    Log.d("Transport info", "Paso 2")
+                    flag = true
+                }
+                if (flag)
+                {
+                    Log.d("Transport info", "Paso 3")
+                    busStopsOD += busStop
+                }
+                if (LatLng(busStop.latitude,busStop.longitude) == marker.position){
+                    Log.d("Transport info", "Paso 4")
+                    flag = false
+                }
+            }
 
-            showRouteToDestination(busStop, marker)
+            for ((i, busStopDestination) in busStopsOD.withIndex()){
+                Log.d("Transport info", "Paso 5")
+                if (i < busStopsOD.size - 1) {
+                    Log.d("Transport info", "Paso 6")
+                    // Route between bus stops
+                    showRouteToDestination(busStopsOD[i], busStopsOD[i + 1])
+                }
+            }
+
 
 //            if (minDistance > thresholdDistance) {
 //                // User is far from the bus stop, prompt them to navigate to the bus stop first
@@ -557,14 +550,12 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         dialog.show()
     }
 
-    private fun showRouteToDestination(busStop: BusStop, marker: Marker) {
+    private fun showRouteToDestination(busStopOrigin: BusStop, busStopDestination: BusStop) {
         // Clear old routes
         clearOldRoutes()
-        // Replace this with the actual destination coordinates
-        val destinationLatLng = marker.position
 
         // Now, get the route from the bus stop to the destination
-        getRoute(LatLng(busStop.latitude, busStop.longitude), destinationLatLng)
+        getRoute(LatLng(busStopOrigin.latitude, busStopOrigin.longitude), LatLng(busStopDestination.latitude, busStopDestination.longitude))
     }
 
 
