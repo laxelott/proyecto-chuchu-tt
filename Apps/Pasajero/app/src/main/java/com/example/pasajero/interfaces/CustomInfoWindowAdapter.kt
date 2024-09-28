@@ -24,12 +24,6 @@ class CustomInfoWindowAdapter(private val context: Context, private val currentL
         val tvTitle = view.findViewById<TextView>(R.id.tv_title)
         tvTitle.text = marker.title
 
-        val btnFindNearest = view.findViewById<Button>(R.id.tv_button)
-        btnFindNearest?.setOnClickListener {
-            Log.d("Transport info", "Click al button de custom window")
-            findNearestBusStop(marker)
-        }
-
         // Agregar más elementos según sea necesario
         return view
     }
@@ -38,34 +32,5 @@ class CustomInfoWindowAdapter(private val context: Context, private val currentL
         // Si deseas personalizar el contenido cuando se hace clic en el marcador,
         // puedes implementar esta función. Si no es necesario, puedes devolver null.
         return null
-    }
-
-    private fun findNearestBusStop(marker: Marker) {
-        var nearestBusStop: BusStop? = null
-        var minDistance = Float.MAX_VALUE
-
-        // Loop through all BusStops to find the nearest
-        for (busStop in busStops) {
-            val busStopLocation = Location("BusStop").apply {
-                latitude = busStop.latitude
-                longitude = busStop.longitude
-            }
-
-            val distance = busStopLocation.distanceTo(Location("CurrentLocation").apply {
-                latitude = currentLocation.latitude
-                longitude = currentLocation.longitude
-            })
-
-            if (distance < minDistance) {
-                minDistance = distance
-                nearestBusStop = busStop
-            }
-        }
-
-        // Now you can show the nearestBusStop information
-        nearestBusStop?.let {
-            // You can show a Toast or update the UI with the nearest BusStop details
-            Toast.makeText(context, "Nearest Bus Stop: ${it.name}, Distance: ${minDistance}m", Toast.LENGTH_SHORT).show()
-        } ?: Toast.makeText(context, "No Bus Stops available", Toast.LENGTH_SHORT).show()
     }
 }

@@ -7,6 +7,7 @@
     android:gravity="center"
     android:background="@drawable/shape"
     android:paddingVertical="8dp"
+    android:id="@+id/infoWindowContainer"
     android:paddingHorizontal="20dp">
 
     <TextView

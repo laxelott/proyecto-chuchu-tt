@@ -10,6 +10,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.example.mapa.recoveryPassword.RecoveryPasswordActivity
+import com.google.gson.Gson
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -98,12 +99,20 @@ class MainActivity : AppCompatActivity() {
                 if (response.isSuccessful) {
                     val responseBody = response.body?.string()
 
+                    // Parse the responseBody into LoginSuccess using Gson
+                    val gson = Gson()
+                    val loginSuccess = gson.fromJson(responseBody, LoginSuccess::class.java)
+
                     // Switch back to the Main dispatcher for UI-related tasks
                     withContext(Dispatchers.Main) {
-                        println("Response: $responseBody")
-                        // Start the next activity after a successful response
-                        val intent = Intent(this@MainActivity, TransportInformationActivity::class.java)
-                        startActivity(intent)
+                        // Check if login is successful before starting the next activity
+                        if (loginSuccess.login == 1) {
+                            val intent = Intent(this@MainActivity, TransportInformationActivity::class.java)
+                            intent.putExtra("Token", loginSuccess.token)
+                            startActivity(intent)
+                        } else {
+                            println("Login failed.")
+                        }
                     }
                 } else {
                     withContext(Dispatchers.Main) {
