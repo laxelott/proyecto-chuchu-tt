@@ -27,9 +27,20 @@ CREATE PROCEDURE authorizeDriver(
 )
 BEGIN
 
+    DECLARE `login` int;
+    DECLARE `newToken` varchar(40);
+    CALL generateToken(newToken);
+    
     SELECT count(*) AS auth FROM Driver d
         WHERE d.username = pUsername
-        AND d.password = pPassword;
+        AND d.password = pPassword
+        INTO login;
+
+    IF login = 1 THEN
+        SELECT login, newToken as token;
+    ELSE
+        SELECT login;
+    END IF;
 
 END$$
 
@@ -88,6 +99,7 @@ BEGIN
         `name` varchar(200),
         `latitude` double,
         `longitude` double,
+        `waypoints` varchar(1000),
         `icon` blob
     );
 
@@ -98,7 +110,13 @@ BEGIN
 
     -- Fill route with linked stops
     WHILE nextStopId IS NOT NULL DO
-        INSERT INTO temp_StopsInRoute
+        INSERT INTO temp_StopsInRoute(
+            `idStop`,
+            `name`,
+            `latitude`,
+            `longitude`,
+            `icon`
+        )
         SELECT
             s.idStop,
             s.name,
@@ -108,12 +126,96 @@ BEGIN
         FROM Stop s
         WHERE idStop = nextStopId;
 
+        UPDATE temp_StopsInRoute
+        SET waypoints = (
+            SELECT
+                GROUP_CONCAT(CONCAT(w.coordX, ',', w.coordY) SEPARATOR '|') as waypoints
+            FROM Waypoint w 
+            WHERE idStop = nextStopId
+        )
+        WHERE idStop = nextStopId;
+
         SELECT idNext FROM Stop WHERE idStop = nextStopId
         INTO nextStopId;
     END WHILE;
 
     SELECT * FROM temp_StopsInRoute;
     DROP TABLE temp_StopsInRoute;
+
+END$$
+
+-- -----------------------------------------------------------------------------
+  -- getDriverInfo
+-- -----------------------------------------------------------------------------
+DROP PROCEDURE IF EXISTS getDriverInfo$$
+CREATE PROCEDURE getDriverInfo(
+    `pToken` varchar(40)
+)
+BEGIN
+
+    SELECT DISTINCT
+    	d.name,
+        v.identifier AS 'vehicleIdentifier',
+        CONCAT(r.name, ' - ', r.description) AS 'routeName',
+        r.color AS 'routeColor',
+        r.iconB64 AS 'routeIcon'
+    FROM Driver d
+        INNER JOIN Driver_Vehicle dv ON d.idDriver = d.idDriver
+        INNER JOIN Vehicle v ON dv.idVehicle = v.idVehicle
+        INNER JOIN Vehicle_Route vr ON v.idVehicle = vr.idVehicle
+        INNER JOIN Route r ON vr.idRoute = r.idRoute
+    WHERE d.token = pToken;
+
+END$$
+
+-- -----------------------------------------------------------------------------
+  -- setDriverActive
+-- -----------------------------------------------------------------------------
+DROP PROCEDURE IF EXISTS setDriverActive$$
+CREATE PROCEDURE setDriverActive(
+    `pToken` varchar(40),
+    `pIdentifier` varchar(40)
+)
+BEGIN
+
+    DECLARE error int;
+
+    IF (SELECT COUNT(*) FROM Driver d WHERE d.token = pToken) > 0 THEN
+        IF (SELECT active FROM Driver d WHERE d.token = pToken) = 0 THEN
+            UPDATE Vehicle SET
+                token = pToken WHERE identifier = pIdentifier;
+            UPDATE Driver SET
+                active = 1 WHERE token = pToken;
+            SET error = 0;
+        ELSE
+            SET error = 2;
+        END IF;
+    ELSE
+        SET error = 1;
+    END IF;
+
+    SELECT error;
+
+END$$
+
+-- -----------------------------------------------------------------------------
+  -- setDriverInactive
+-- -----------------------------------------------------------------------------
+DROP PROCEDURE IF EXISTS setDriverInactive$$
+CREATE PROCEDURE setDriverInactive(
+    `pToken` varchar(40)
+)
+BEGIN
+
+    IF (SELECT COUNT(*) FROM Vehicle v WHERE v.token = pToken) > 0 THEN
+        UPDATE Vehicle SET
+            token = NULL WHERE token = pToken;
+        UPDATE Driver SET
+            active = 0 WHERE token = pToken;
+        SELECT 0 AS error;
+    ELSE
+        SELECT 1 AS error;
+    END IF;
 
 END$$
 
@@ -153,6 +255,30 @@ BEGIN
         SET newSalt = MD5(RAND());
     END WHILE;
     SELECT newSalt;
+
+END$$
+
+
+-- -----------------------------------------------------------------------------
+  -- generateToken
+-- -----------------------------------------------------------------------------
+DROP PROCEDURE IF EXISTS generateToken$$
+CREATE PROCEDURE generateToken(
+    OUT tokenOut varchar(35)
+)
+BEGIN
+
+    DECLARE `newToken` varchar(35);
+    
+    SET newToken = MD5(RAND());
+    WHILE (
+        (SELECT COUNT(*) FROM Driver d WHERE d.token = newToken) +
+        (SELECT COUNT(*) FROM Admin a WHERE a.token = newToken)
+    ) > 0 DO
+        SET newToken = MD5(RAND());
+    END WHILE;
+
+    SELECT newToken INTO tokenOut;
 
 END$$
 

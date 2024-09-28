@@ -38,6 +38,7 @@ CREATE TABLE `Driver`(
     `salt` varchar(40) NOT NULL UNIQUE,
     `phone` varchar(20) NOT NULL,
     `active` tinyint NOT NULL,
+    `token` varchar(40) UNIQUE,
     CONSTRAINT `PK_Driver` PRIMARY KEY (`idDriver` ASC)
 );
 
@@ -127,6 +128,7 @@ CREATE TABLE `Last_Location`(
 CREATE TABLE `Vehicle`(
     `idVehicle` int NOT NULL AUTO_INCREMENT,
     `identifier` varchar(255) NOT NULL UNIQUE,
+    `driverToken` varchar(40),
     CONSTRAINT `PK_Vehicle` PRIMARY KEY (`idVehicle` ASC)
 );
 
@@ -147,7 +149,10 @@ CREATE TABLE `Waypoint`(
     `idWaypoint` int NOT NULL AUTO_INCREMENT,
     `coordX` double NOT NULL,
     `coordY` double NOT NULL,
-    CONSTRAINT `Waypoint` PRIMARY KEY (`idWaypoint` ASC)
+    `idStop` int NOT NULL,
+    CONSTRAINT `Waypoint` PRIMARY KEY (`idWaypoint` ASC),
+    CONSTRAINT `FK_Waypoint_Stop` FOREIGN KEY (`idStop`)
+        REFERENCES `Stop` (`idStop`)
 );
 
 
