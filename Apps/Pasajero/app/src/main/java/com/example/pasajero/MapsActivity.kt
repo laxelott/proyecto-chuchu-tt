@@ -256,12 +256,12 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         binding.rvEstaciones.adapter = adapter
     }
 
-    private fun startSendingDataPeriodically() {
+    private fun checkDistanceLocation() {
         coroutineScope.launch {
             while (true) {
                 // Ejecutar la tarea en un hilo IO
                 withContext(Dispatchers.IO) {
-                    getLatitudeLongitude()
+
                 }
                 // Esperar 1 segundos
                 delay(1000)
@@ -641,18 +641,34 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         val timer = findViewById<TextView>(R.id.traveling_container_timer)
         val button = findViewById<ImageButton>(R.id.traveling_container_button)
         container.visibility = View.VISIBLE
+        val busStopDestinationL = LatLng(busStopDestination.latitude, busStopDestination.longitude) //La ubicacion del bus
+        var distanceBetweenStation:Float = 0f
 
-
-
-        try {
-            val (distance, duration) = getDistanceAndTime(busStopOrigin, busStopDestination).await()
-            title.text = "Siguiente estación\n${busStopDestination.name}"
-            timer.text = duration
-            println("Distance: $distance")
-            println("Duration: $duration")
-        } catch (e: Exception) {
-            println("Error fetching distance and duration: ${e.message}")
+        coroutineScope.launch {
+            while (true) {
+                // Ejecutar la tarea en un hilo IO
+                withContext(Dispatchers.IO) {
+                    distanceBetweenStation = getDistance(currentLocation, busStopDestinationL).await().toFloat()
+                }
+                // Esperar 1 segundos
+                delay(1000)
+            }
         }
+
+        while(distanceBetweenStation < 5f)
+        {
+            try {
+                val (distance, duration) = getDistanceAndTime(busStopOrigin, busStopDestination).await()
+                title.text = "Siguiente estación\n${busStopDestination.name}"
+                timer.text = duration
+                println("Distance: $distance")
+                println("Duration: $duration")
+            } catch (e: Exception) {
+                println("Error fetching distance and duration: ${e.message}")
+            }
+        }
+
+
     }
 
     // Function to get distance and duration
