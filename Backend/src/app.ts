@@ -8,6 +8,7 @@ import indexRouter from './routes/indexRouter.js';
 import authRouter from './routes/authRouter.js';
 import transportDataRouter from './routes/transportDataRouter.js';
 import locationRouter from './routes/locationRouter.js';
+import incidentsRouter from './incidents/incidentsDataRouter.js';
 
 const app:Express = express();
 
@@ -27,6 +28,7 @@ app.use('/', indexRouter);
 app.use('/api/auth/', authRouter);
 app.use('/api/data/', transportDataRouter);
 app.use('/api/location/', locationRouter);
+app.use('/api/incidents/', incidentsRouter);
 
 
 // catch 404 and forward to error handler
