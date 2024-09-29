@@ -7,13 +7,13 @@ import retrofit2.http.Query
 
 interface GoogleDirectionsApi {
     @GET("directions/json")
-
     fun getDirections(
         @Query("origin") origin: String,
         @Query("destination") destination: String,
         @Query("key") apiKey: String,
         @Query("mode") mode: String,
-        @Query("waypoints") waypoints: String? = null
+        @Query("waypoints") waypoints: String? = null,
+        @Query("language") language: String? = null // Remove the extra space here
     ): Call<DirectionsResponse>
 }
 

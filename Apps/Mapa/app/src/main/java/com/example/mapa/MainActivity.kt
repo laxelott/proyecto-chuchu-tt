@@ -11,6 +11,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.example.mapa.recoveryPassword.RecoveryPasswordActivity
 import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -56,7 +57,9 @@ class MainActivity : AppCompatActivity() {
 
         // When the login is success
         btnLogin.setOnClickListener {
-            login()
+            //login()
+            val intent = Intent(this@MainActivity, TransportInformationActivity::class.java)
+            startActivity(intent)
         }
     }
 
@@ -87,7 +90,7 @@ class MainActivity : AppCompatActivity() {
                 .build()
 
             val request = Request.Builder()
-                .url("https://chuchu-backend-sdhfdsksuq-vp.a.run.app/api/auth/authorize")
+                .url("https://chuchu-backend-sdhfdsksuq-vp.a.run.app/api/auth/login")
                 .post(formBody)
                 .build()
 
@@ -126,6 +129,60 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
+
+//    private fun makePostRequest(user: UserInfo) {
+//        CoroutineScope(Dispatchers.IO).launch {
+//            val client = OkHttpClient()
+//
+//            val formBody = FormBody.Builder()
+//                .add("username", user.name)
+//                .add("password", user.password)
+//                .build()
+//
+//            val request = Request.Builder()
+//                .url("https://chuchu-backend-sdhfdsksuq-vp.a.run.app/api/auth/authorize")
+//                .post(formBody)
+//                .build()
+//
+//            try {
+//                // Execute the network request
+//                val response = client.newCall(request).execute()
+//
+//                // Ensure you handle the response in the IO context
+//                if (response.isSuccessful) {
+//                    val responseBody = response.body?.string()
+//
+//                    // Parse the responseBody into a list of LoginSuccess using Gson
+//                    val gson = Gson()
+//                    val listType = object : TypeToken<List<LoginSuccess>>() {}.type
+//
+//                    val loginSuccessList: List<LoginSuccess> = gson.fromJson(responseBody, listType)
+//
+//                    // Switch back to the Main dispatcher for UI-related tasks
+//                    withContext(Dispatchers.Main) {
+//                        // Iterate through the list to process each LoginSuccess object
+//                        loginSuccessList.forEach { loginSuccess ->
+//                            if (loginSuccess.login == 1) {
+//                                val intent = Intent(this@MainActivity, TransportInformationActivity::class.java)
+//                                intent.putExtra("Token", loginSuccess.token)
+//                                startActivity(intent)
+//                            } else {
+//                                println("Login failed for one of the users.")
+//                            }
+//                        }
+//                    }
+//                } else {
+//                    withContext(Dispatchers.Main) {
+//                        println("POST request failed with response code: ${response.code}")
+//                    }
+//                }
+//            } catch (e: IOException) {
+//                withContext(Dispatchers.Main) {
+//                    println("POST request failed: ${e.message}")
+//                }
+//            }
+//        }
+//    }
 
     private fun showProgress(show: Boolean) {
         // Implement logic to show or hide a progress indicator

@@ -6,5 +6,6 @@ data class BusStop(
     val id: Int,
     val name: String,
     val latitude: Double,
-    val longitude: Double
+    val longitude: Double,
+    var waypoints: String?  // Holds the parsed LatLng list
 ) :Serializable

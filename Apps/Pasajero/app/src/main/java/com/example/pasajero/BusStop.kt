@@ -8,5 +8,5 @@ data class BusStop (
     var name: String,
     var latitude: Double,
     var longitude: Double,
-    var waypoints: String?  // Holds the parsed LatLng list
+    var waypoints: String? = null
 ) : Serializable

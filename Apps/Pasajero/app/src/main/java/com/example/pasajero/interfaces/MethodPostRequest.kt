@@ -22,8 +22,6 @@ interface ApiService {
     suspend fun postRoutesInfo(@Path("idTransport") idTransport: Int): Response<List<LineInfo>>
     @POST("data/stop/list/{idRoute}")
     suspend fun getBusStopsInfo(@Path("idRoute") idRoute: Int): Response<List<BusStop>>
-    @POST("location/register/{latitude}/{longitude}")
-    suspend fun getLatitudeLongitude(): Response<List<ConductorLocation>>
 
 }
 

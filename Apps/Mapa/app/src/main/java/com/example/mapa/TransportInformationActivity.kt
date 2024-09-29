@@ -22,7 +22,7 @@ class TransportInformationActivity : AppCompatActivity() {
     private lateinit var btnStart: Button
 
     //Array of objects with all the station lines info
-    private lateinit var myTransportInfo: String
+    private lateinit var conductorToken: String
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -43,16 +43,16 @@ class TransportInformationActivity : AppCompatActivity() {
         btnStart = findViewById(R.id.btn_start)
 
         // Getting the response from the Main Activity
-        myTransportInfo = intent.getStringExtra("Token")?: ""
+        conductorToken = intent.getStringExtra("Token")?: ""
 
         //Getting the data from the DB
         val service = ApiHelper().prepareApi()
-        ApiHelper().getDataFromDB<UserInfo>(
-            serviceCall = { service.login() }, // Pasamos la función que hace la solicitud
+        ApiHelper().getDataFromDB<LineInfo>(
+            serviceCall = { service.getVehicles(conductorToken) }, // Pasamos la función que hace la solicitud
             processResponse = { response ->
-                val userInfo = response.body()
-                if (userInfo != null) {
-                    Log.d("Login response", "Datos de usuario: $userInfo")
+                val infoVehicles = response.body()
+                if (infoVehicles != null) {
+                    Log.d("Login response", "Datos de usuario: $infoVehicles")
                     val intent = Intent(this, TransportInformationActivity::class.java)
                     startActivity(intent)
                 }
