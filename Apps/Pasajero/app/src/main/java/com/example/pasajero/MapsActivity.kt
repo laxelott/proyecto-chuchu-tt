@@ -69,6 +69,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var mMap: GoogleMap
     private lateinit var binding: ActivityMapsBinding
     private lateinit var btnLocation: ImageView
+    private lateinit var btnCancelTravel: ImageView
     private lateinit var adapter: BusStopAdapter
     private lateinit var stationsButton: ImageView
     private var routeID: Int = 0
@@ -106,6 +107,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         // Construct a FusedLocationProviderClient.
         fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this)
         btnLocation = findViewById(R.id.location_button)
+        btnCancelTravel = findViewById(R.id.btn_cancel_travel)
         // Get all the busStops from the line selected
         routeID = intent.getIntExtra("routeID",0)
         Log.d("Transport response", "Datos de transporte: $routeID")
@@ -551,24 +553,40 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
     private fun hideSearchBarAndShowDialog(){
         val container = findViewById<LinearLayout>(R.id.traveling_container)
         val searchBar = findViewById<LinearLayout>(R.id.searchContainer)
-        val button = findViewById<Button>(R.id.traveling_container_button)
-
         container.visibility = View.VISIBLE
+        btnCancelTravel.visibility = View.VISIBLE
 
-        button.setOnClickListener {
-            container.visibility = View.GONE
-            searchBar.visibility = View.VISIBLE
-            val cameraPosition = CameraPosition.Builder()
-                .target(currentLocation)
-                .zoom(16f)
-                .bearing(0f)
-                .tilt(0f)
-                .build()
-            mMap.animateCamera(CameraUpdateFactory.newCameraPosition(cameraPosition))
-            clearOldRoutes()
-            createRoutes()
-            stopLocationUpdates()
+        btnCancelTravel.setOnClickListener {
+            showAlertDialog(container, searchBar)
         }
+    }
+
+    private fun showAlertDialog(container: LinearLayout, searchBar: LinearLayout) {
+        val builder = AlertDialog.Builder(this)
+        builder.setTitle("Finalizar viaje")
+            .setMessage("¿Quieres finalizar tu viaje?")
+            .setPositiveButton("Si") { dialog, _ ->
+                container.visibility = View.GONE
+                searchBar.visibility = View.VISIBLE
+
+                val cameraPosition = CameraPosition.Builder()
+                    .target(currentLocation)
+                    .zoom(16f)
+                    .bearing(0f)
+                    .tilt(0f)
+                    .build()
+
+                mMap.animateCamera(CameraUpdateFactory.newCameraPosition(cameraPosition))
+                clearOldRoutes()
+                createRoutes()
+                stopLocationUpdates()
+                btnCancelTravel.visibility = View.GONE
+                dialog.dismiss() // Optional here, as dialog is automatically dismissed
+            }
+            .setNegativeButton("No") { dialog, _ ->
+                dialog.dismiss()
+            }
+        builder.create().show()
     }
 
     private fun stopLocationUpdates() {
@@ -581,6 +599,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
     @SuppressLint("SetTextI18n")
     private suspend fun showTimeToDestination(busStopOrigin: BusStop, busStopDestination: BusStop) {
         val title = findViewById<TextView>(R.id.traveling_container_title)
+        val showStop = findViewById<TextView>(R.id.traveling)
         val timer = findViewById<TextView>(R.id.traveling_container_timer)
         val busStopDestinationL = LatLng(busStopDestination.latitude, busStopDestination.longitude)
         var distanceBetweenStation: Float
@@ -591,13 +610,15 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
             }
             withContext(Dispatchers.Main) {
                 if (distanceBetweenStation < 5f) {
-                    title.text = "Estás en la estación: \n${busStopDestination.name}"
-                    timer.text = "Tiempo estimado: 0 segundos"
+                    showStop.text = "Estás en la estación"
+                    title.text = "${busStopDestination.name}"
+                    timer.text = "0 segundos"
                     return@withContext
                 } else {
                     val (distance, duration) = getDistanceAndTime(busStopOrigin, busStopDestination).await()
-                    title.text = "Siguiente estación: \n${busStopDestination.name}"
-                    timer.text = "Tiempo estimado: \n$duration"
+                    showStop.text = "Siguiente estación"
+                    title.text = "${busStopDestination.name}"
+                    timer.text = "$duration"
                 }
             }
             delay(10)

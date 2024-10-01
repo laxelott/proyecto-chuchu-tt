@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Pasajero</string>
+    <string name="app_name">Nintrip</string>
     <string name="title_activity_maps">MapsActivity</string>
     <string name="api_key">AIzaSyBYGKzpDXFD54Y6kqlis-_XxL6l1fafZ9Q</string>
     <string name="TT">Prototipo de sistema móvil que permite monitorear en tiempo real el transporte público</string>

@@ -23,4 +23,6 @@ interface ApiService {
         @Path("latitude") latitude: Double,
         @Path("longitude") longitude: Double
     ): Response<Unit>
+    @POST("data/stop/list/{idRoute}/incident")
+    suspend fun postIncident(@Path("idRoute") idRoute: Int): Response<Boolean>
 }

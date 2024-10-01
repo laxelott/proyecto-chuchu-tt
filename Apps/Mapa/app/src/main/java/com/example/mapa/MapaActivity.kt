@@ -66,6 +66,8 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var mMap: GoogleMap
     private lateinit var binding: ActivityMapaTransporteBinding
     private lateinit var btnLocation: ImageView
+    private lateinit var btnEndTravel: ImageView
+    private lateinit var btnReportIncident: ImageView
     private var busStops: List<BusStop> = listOf()
     private var busStopMarkers: MutableMap<BusStop, Marker> = mutableMapOf()
     private lateinit var directionsAPI: GoogleDirectionsApi
@@ -95,14 +97,16 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
         // Construct a FusedLocationProviderClient
         fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this)
         btnLocation = findViewById(R.id.location_button)
+        btnReportIncident = findViewById(R.id.btn_report_incident)
+        btnEndTravel = findViewById(R.id.traveling_container_button)
 
         // Fetch bus stops from the selected line
         val service = ApiHelper().prepareApi()
+        //showProgressBar()
         fetchBusStops(service)
         coroutineScope = CoroutineScope(Dispatchers.Main + Job())
         progressBar = findViewById(R.id.progress_bar)
         background = findViewById(R.id.ownBackground)
-        showProgressBar()
 
         // Configure CoroutineScope
 //        startSendingDataPeriodically()
@@ -128,7 +132,7 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
                     busStops = busStopsInfo
                     runOnUiThread {
                         setupMapMarkersAndRoutes()
-                        startTravel()
+                        //startTravel()
                     }
                 }
             }
@@ -586,6 +590,8 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
         setupMap()
         enableLocation()
         setupLocationButton()
+        setUpIncidentButton()
+        setUpEndTravelButton()
     }
     private fun setupMap() {
         mMap.setMapStyle(MapStyleOptions.loadRawResourceStyle(this, R.raw.custom_map_style))
@@ -600,6 +606,27 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
         btnLocation.setOnClickListener {
             mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLocation, 16f))
         }
+    }
+    private fun setUpIncidentButton() {
+        btnReportIncident.setOnClickListener {
+            showReportIncident()
+        }
+    }
+    private fun setUpEndTravelButton() {
+        btnEndTravel.setOnClickListener {
+            showEndTravelWindow()
+        }
+    }
+
+    private fun showReportIncident() {
+        // Show a new window or dialog when the travel ends
+        val dialogFragment = ReportIncidentDialogFragment()
+        dialogFragment.show(supportFragmentManager, "reportIncident")
+    }
+    private fun showEndTravelWindow() {
+        // Show a new window or dialog when the travel ends
+        val dialogFragment = EndTravelDialogFragment()
+        dialogFragment.show(supportFragmentManager, "endTravelDialog")
     }
 
 

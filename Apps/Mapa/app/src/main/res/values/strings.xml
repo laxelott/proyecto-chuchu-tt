@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Mapa</string>
+    <string name="app_name">Nintrip Conductor</string>
     <string name="title_activity_mapa_transporte">Mapa_transporte</string>
     <string name="error_network">Network error</string>
     <string name="api_key">AIzaSyCw4ZpAdy34Nqfigq5N7G1rXew80c2cBms</string>
