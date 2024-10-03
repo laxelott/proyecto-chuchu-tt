@@ -1,6 +1,6 @@
 <resources>
     <string name="app_name">Nintrip</string>
     <string name="title_activity_maps">MapsActivity</string>
-    <string name="api_key">AIzaSyBYGKzpDXFD54Y6kqlis-_XxL6l1fafZ9Q</string>
+    <string name="api_key">AIzaSyBO2nyaIn_4xCfJ6_Wj6ycIPX43h8EjIP4</string>
     <string name="TT">Prototipo de sistema móvil que permite monitorear en tiempo real el transporte público</string>
 </resources>

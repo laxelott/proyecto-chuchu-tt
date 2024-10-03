@@ -2,13 +2,18 @@ package com.example.pasajero
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.location.Location
+import android.media.MediaPlayer
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.os.Looper
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.strictmode.WebViewMethodCalledOnWrongThreadViolation
 import android.text.Editable
 import android.text.TextWatcher
 import android.util.Log
@@ -63,6 +68,9 @@ import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import kotlinx.coroutines.*
+import retrofit2.awaitResponse
+import kotlin.coroutines.resume
+import kotlin.coroutines.suspendCoroutine
 
 class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
@@ -75,23 +83,30 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
     private var routeID: Int = 0
     private var busStops: List<BusStop> = listOf()
     private lateinit var directionsAPI: GoogleDirectionsApi
-    private var waypoints: List<LatLng> = listOf()
     private var busStopMarkers: MutableMap<BusStop, Marker> = mutableMapOf<BusStop, Marker>()
     private lateinit var coroutineScope: CoroutineScope
     private val polylines: MutableList<Polyline> = mutableListOf()
     private var isLocationUpdatesActive = false
-    private lateinit var locationCallback: LocationCallback
+    private val locationCallback = object : LocationCallback() {
+        override fun onLocationResult(locationResult: LocationResult) {
+            locationResult.locations.forEach { location ->
+                currentLocation = LatLng(location.latitude, location.longitude)
+            }
+        }
+    }
     var ConductorLocationList: List<ConductorLocation> = listOf()
 
     //Variables to ask for the location permission
-    companion object{
+    companion object {
         const val REQUEST_CODE_LOCATION = 0
     }
+
     private lateinit var fusedLocationProviderClient: FusedLocationProviderClient
     private lateinit var lastLocation: Location
-    private var currentLocation: LatLng = LatLng(0.0,0.0)
+    private var currentLocation: LatLng = LatLng(0.0, 0.0)
     private lateinit var progressBar: ProgressBar
     private lateinit var background: LinearLayout
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -109,7 +124,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         btnLocation = findViewById(R.id.location_button)
         btnCancelTravel = findViewById(R.id.btn_cancel_travel)
         // Get all the busStops from the line selected
-        routeID = intent.getIntExtra("routeID",0)
+        routeID = intent.getIntExtra("routeID", 0)
         Log.d("Transport response", "Datos de transporte: $routeID")
         val service = ApiHelper().prepareApi()
         fetchBusStops(service)
@@ -118,18 +133,16 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         progressBar = findViewById(R.id.progress_bar)
         background = findViewById(R.id.ownBackground)
 
-        // Llamar a la función para enviar datos periódicamente
-        //startSendingDataPeriodically()
-
         val retrofit = Retrofit.Builder()
             .baseUrl("https://maps.googleapis.com/maps/api/")
             .addConverterFactory(GsonConverterFactory.create())
             .build()
         directionsAPI = retrofit.create(GoogleDirectionsApi::class.java)
 
+
     }
 
-    private fun fetchBusStops(service: ApiService){
+    private fun fetchBusStops(service: ApiService) {
         ApiHelper().getDataFromDB(
             serviceCall = { service.getBusStopsInfo(routeID) }, // Pasamos la función que hace la solicitud
             processResponse = { response ->
@@ -163,19 +176,18 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         polylines.clear()
     }
 
-    private fun createRoutes(){
+    private fun createRoutes() {
+
+        val origin = busStops.first()
+        val waypoints = gettingWaypointsFromDestinations(busStops)
+        Log.e("Waypoints", "Lista: ${waypoints}")
+        getRoute(origin, origin, waypoints)
+
         for ((i, busStop) in busStops.withIndex()) {
             createMarker(busStop)
-            waypoints = waypoints + LatLng(busStop.latitude, busStop.longitude)
-            if (i < busStops.size - 1) {
-                // Route between bus stops
-                getRoute(busStops[i], busStops[i+1])
-            }
-            else {
-                getRoute(busStops[i], busStops[0])
-            }
         }
     }
+
     // Add a marker
     private fun createMarker(busStop: BusStop) {
         val location = LatLng(busStop.latitude, busStop.longitude)
@@ -195,57 +207,96 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private fun latLangToStr(latLng: LatLng) = "${latLng.latitude},${latLng.longitude}"
 
-    private fun getRoute(origin: BusStop, destination: BusStop) {
+    private fun getRoute(origin: BusStop, destination: BusStop, waypoints: String = "") {
         val apiKey = getString(R.string.api_key)
 
-        val waypointsStr = destination.waypoints ?: ""
+        val initialWaypoints = mutableListOf<String>()
 
-        val originLocation = latLangToStr(LatLng(origin.latitude, origin.longitude))
-        val destinationLocation = latLangToStr(LatLng(destination.latitude, destination.longitude))
+        waypoints.let {
+            initialWaypoints.addAll(it.split("|"))
+        }
 
-        val call = directionsAPI.getDirections(
-            originLocation,
-            destinationLocation, apiKey,
-            "driving",
-            waypoints = waypointsStr
-        )
+        val waypointChunks = initialWaypoints.chunked(25)
 
-        call.enqueue(object : Callback<DirectionsResponse> {
-            override fun onResponse(call: Call<DirectionsResponse>, response: Response<DirectionsResponse>) {
-                if (response.isSuccessful) {
-                    val routes = response.body()?.routes
-                    if (!routes.isNullOrEmpty()) {
-                        val polyline = routes[0].overview_polyline.points
-                        polyline.let {
-                            val decodedPath = PolyUtil.decode(it)
-                            val newPolyline = mMap.addPolyline(
-                                PolylineOptions()
-                                    .addAll(decodedPath)
-                                    .color(android.graphics.Color.BLUE)
-                                    .width(10f)
-                                    .geodesic(true)
-                            )
-                            polylines.add(newPolyline)
+        var previousStop: BusStop = origin
+
+        waypointChunks.forEachIndexed { index, chunk ->
+            val waypointsStr = chunk.joinToString("|")
+
+            val currentDestination: BusStop = if (index == waypointChunks.size - 1) {
+                destination
+            } else {
+                val lastWaypoint = chunk.last().split(",")
+                BusStop(
+                    0,
+                    "Waypoint ${index}",
+                    lastWaypoint[0].toDouble(),
+                    lastWaypoint[1].toDouble()
+                )
+            }
+
+            val originLocation = latLangToStr(LatLng(previousStop.latitude, previousStop.longitude))
+
+            val currentDestinationLocation =
+                latLangToStr(LatLng(currentDestination.latitude, currentDestination.longitude))
+
+            val call = directionsAPI.getDirections(
+                originLocation,
+                currentDestinationLocation,
+                apiKey,
+                "driving",
+                waypoints = waypointsStr
+            )
+
+            call.enqueue(object : Callback<DirectionsResponse> {
+                override fun onResponse(
+                    call: Call<DirectionsResponse>,
+                    response: Response<DirectionsResponse>
+                ) {
+                    if (response.isSuccessful) {
+                        val routes = response.body()?.routes
+                        if (!routes.isNullOrEmpty()) {
+                            val polyline = routes[0].overview_polyline.points
+                            polyline.let {
+                                val decodedPath = PolyUtil.decode(it)
+                                val newPolyline = mMap.addPolyline(
+                                    PolylineOptions()
+                                        .addAll(decodedPath)
+                                        .color(android.graphics.Color.BLUE)
+                                        .width(10f)
+                                        .geodesic(true)
+                                )
+                                polylines.add(newPolyline)
+                            }
+                        } else {
+                            Log.e("DirectionsError", "No routes found in response")
                         }
                     } else {
-                        Log.e("DirectionsError", "No routes found in response")
+                        Log.e(
+                            "DirectionsError",
+                            "Response error: ${response.code()} - ${response.message()} - Body: ${
+                                response.errorBody()?.string()
+                            }"
+                        )
                     }
-                } else {
-                    Log.e("DirectionsError", "Response error: ${response.code()} - ${response.message()} - Body: ${response.errorBody()?.string()}")
                 }
-            }
 
-            override fun onFailure(call: Call<DirectionsResponse>, t: Throwable) {
-                Log.e("DirectionsError", "Failed to get route: ${t.message}")
-            }
-        })
+                override fun onFailure(call: Call<DirectionsResponse>, t: Throwable) {
+                    Log.e("DirectionsError", "Failed to get route: ${t.message}")
+                }
+            })
+
+            previousStop = currentDestination
+        }
     }
+
 
     private fun setupRecyclerView() {
         binding.rvEstaciones.layoutManager = LinearLayoutManager(this)
         adapter = BusStopAdapter(busStops, mMap, binding, busStopMarkers)
         binding.rvEstaciones.adapter = adapter
     }
+
 
     /**
      * Manipulates the map once available.
@@ -283,13 +334,14 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         }
     }
 
-    private fun searchBarForBusStops(){
+    private fun searchBarForBusStops() {
         // Show and hide all the stations
         btnLocation = findViewById(R.id.location_button)
         stationsButton = findViewById(R.id.showStations)
 
         stationsButton.setOnClickListener {
-            if (binding.rvEstaciones.isVisible) binding.rvEstaciones.visibility = View.GONE else binding.rvEstaciones.visibility = View.VISIBLE
+            if (binding.rvEstaciones.isVisible) binding.rvEstaciones.visibility =
+                View.GONE else binding.rvEstaciones.visibility = View.VISIBLE
         }
 
         binding.searchBar.setOnFocusChangeListener { _, hasFocus ->
@@ -307,8 +359,10 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
             override fun beforeTextChanged(p0: CharSequence?, p1: Int, p2: Int, p3: Int) {
                 binding.rvEstaciones.visibility = View.VISIBLE
             }
+
             override fun onTextChanged(p0: CharSequence?, p1: Int, p2: Int, p3: Int) {
             }
+
             override fun afterTextChanged(p0: Editable?) {
                 filtrate(p0.toString())
             }
@@ -316,7 +370,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         })
     }
 
-    private fun filtrate (text: String) {
+    private fun filtrate(text: String) {
         val listFiltrate = ArrayList<BusStop>()
 
         busStops.forEach {
@@ -348,6 +402,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
             }
         }
     }
+
     private suspend fun findBusStopForMarker(marker: Marker): BusStop? {
         return withContext(Dispatchers.Main) { // Ensure you're on the Main thread
             busStops.find { busStop ->
@@ -359,134 +414,183 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     @SuppressLint("SuspiciousIndentation")
-    private suspend fun goToBusStop(marker: Marker, busStops: List<BusStop>, progressBar: ProgressBar) {
-        var nearestBusStop: BusStop? = null
+    private suspend fun goToBusStop(
+        marker: Marker,
+        busStops: List<BusStop>,
+        progressBar: ProgressBar
+    ) {
+        val thresholdDistance = 10f
 
-        showProgressBar(progressBar)
+        // Ejecuta las operaciones relacionadas con la UI en el hilo principal
+        withContext(Dispatchers.Main) {
+            try {
+                // Muestra el ProgressBar y actualiza la ubicación actual
+                showProgressBar(progressBar)
+                updateCurrentLocation() // Asegúrate de que 'currentLocation' se actualice correctamente
 
-        try {
-            val distances = calculateDistances(busStops)
-            nearestBusStop = findNearestBusStop(distances)
+                // Calcula la posición del marcador y la ubicación actual
+                val markerPosition = marker.position
+                val currentLatLng = LatLng(currentLocation.latitude, currentLocation.longitude)
 
-            nearestBusStop?.let { busStopOrigin ->
-                val thresholdDistance = 10f  // Adjust threshold as needed
-                val distanceToBusStop = distances.firstOrNull { it.first == busStopOrigin }?.second ?: Float.MAX_VALUE
-//                if (distanceToBusStop > thresholdDistance) {
-//                    showBusStopDialog(busStopOrigin, distanceToBusStop)
-//                } else {
-                    handleBusStopOrigin(busStopOrigin, marker, busStops)
-//                }
-            } ?: run {
-                showToast("No hay estaciones disponibles")
+                // Calcula la distancia entre la ubicación actual y el marcador
+                val distanceToMarker = calculateDistance(currentLatLng, markerPosition)
+
+                // Verifica si la distancia es menor o igual a 10 metros
+                if (distanceToMarker <= thresholdDistance) {
+                    // Mostrar el diálogo en el hilo principal
+                    AlertDialog.Builder(this@MapsActivity)
+                        .setTitle("¡Espera!")
+                        .setMessage("No puede iniciar un viaje a tu estación que está a $distanceToMarker metros de ti :(")
+                        .setNegativeButton("Okay", null)
+                        .show()
+
+                    hideProgressBar(progressBar)
+                    return@withContext // Detener el flujo si la distancia es menor o igual a 10 metros
+                }
+
+                // Si la distancia es mayor a 10 metros, procede a calcular la parada más cercana
+                val (busStop, minDistance) = calculateAndShowClosestBusStop(
+                    currentLocation.latitude,
+                    currentLocation.longitude,
+                    busStops
+                ).await()
+
+                Log.e("DirectionsError", "$busStop, $minDistance")
+
+                busStop?.let {
+                    // Verifica la distancia mínima y muestra el diálogo adecuado
+                    if (minDistance <= thresholdDistance) {
+                        busStopsToBeVisited(it, marker, busStops)
+                    } else {
+                        showBusStopDialog(it, minDistance.toFloat())
+                    }
+                } ?: run {
+                    Log.e("DirectionsError", "No se encontraron rutas")
+                }
+
+            } catch (e: Exception) {
+                // Manejo de excepciones en el hilo principal
+                Log.e("DirectionsError", "Error: ${e.message}")
+            } finally {
+                // Oculta el ProgressBar en el hilo principal
+                hideProgressBar(progressBar)
             }
-        } finally {
-            hideProgressBar(progressBar)
         }
     }
+
+
+
+
+
+
+
+
     private suspend fun showProgressBar(progressBar: ProgressBar) {
         withContext(Dispatchers.Main) {
             progressBar.visibility = View.VISIBLE
             background.visibility = View.VISIBLE
         }
     }
+
     @OptIn(DelicateCoroutinesApi::class)
-    private suspend fun calculateDistances(busStops: List<BusStop>): List<Pair<BusStop, Float>> {
-        return busStops.map { busStop ->
-            GlobalScope.async {
-                val busStopLocation = LatLng(busStop.latitude, busStop.longitude)
-                val distance = getDistance(currentLocation, busStopLocation).await().toFloat()
-                Pair(busStop, distance)
-            }
-        }.awaitAll()
-    }
+    private fun calculateAndShowClosestBusStop(
+        currentLat: Double,
+        currentLon: Double,
+        busStops: List<BusStop>
+    ): Deferred<Pair<BusStop?, Int>> = GlobalScope.async {
 
-    private fun getDistance(busStop1: LatLng, busStop2: LatLng): Deferred<Int> = GlobalScope.async {
-        // Create a CompletableDeferred to handle the result
-        val deferredResult = CompletableDeferred<Int>()
+        val apiKey = getString(R.string.api_key)
+        val origin = "$currentLat,$currentLon"
+        //val origin = "19.4978416589043,-99.1364507294133" // New York City
 
-        val origin = latLangToStr(LatLng(busStop1.latitude, busStop1.longitude))
-        val destination = latLangToStr(LatLng(busStop2.latitude, busStop2.longitude))
-
-        val api = getString(R.string.api_key)
-        val call = directionsAPI.getDirections(origin, destination, api, "walking")
-
-        // Make the API call
-        call.enqueue(object : Callback<DirectionsResponse> {
-            override fun onResponse(
-                call: Call<DirectionsResponse>,
-                response: Response<DirectionsResponse>
-            ) {
-                if (response.isSuccessful) {
-                    val routes = response.body()?.routes
-                    if (routes.isNullOrEmpty()) {
-                        Log.e("DirectionsError", "No se encontraron rutas")
-                        deferredResult.completeExceptionally(Exception("No routes found"))
-                    } else {
-                        val leg = routes[0].legs[0]
-                        val distance = leg.distance.value
-                        // Complete the deferred with the distance
-                        deferredResult.complete(distance)
-                    }
-                } else {
-                    // Handle the unsuccessful response
-                    Log.e("DirectionsError", "Respuesta fallida: ${response.code()} - ${response.message()}")
-                    deferredResult.completeExceptionally(Exception("Error: ${response.code()} - ${response.message()}"))
-                }
-            }
-
-            override fun onFailure(call: Call<DirectionsResponse>, t: Throwable) {
-                Log.d("DirectionsInfo", "Not working")
-                deferredResult.completeExceptionally(t) // Complete with an exception
-            }
-        })
-
-        // Await for the result
-        deferredResult.await()
-    }
-
-    private fun findNearestBusStop(distances: List<Pair<BusStop, Float>>): BusStop? {
-        return distances.minByOrNull { it.second }?.first
-    }
-
-    private suspend fun showBusStopDialog(busStop: BusStop, distance: Float) {
-        withContext(Dispatchers.Main) {
-            AlertDialog.Builder(this@MapsActivity)
-                .setTitle("Ve a la estación más cercana")
-                .setMessage("La estación más cercana es '${busStop.name}' y esta a ${distance.toInt()}m.")
-                .setNegativeButton("Okay", null)
-                .show()
+        val destinationChunks = busStops.chunked(25) { chunk ->
+            chunk.joinToString("|") { "${it.latitude},${it.longitude}" }
         }
-    }
-    private suspend fun handleBusStopOrigin(busStopOrigin: BusStop, marker: Marker, busStops: List<BusStop>) {
-        setupLocationUpdates()
 
+        var minDistance = Int.MAX_VALUE
+        var closestBusStop: BusStop? = null
+
+        val service = Retrofit.Builder()
+            .baseUrl("https://maps.googleapis.com/maps/api/")
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+            .create(DistanceMatrixService::class.java)
+
+        for (destinations in destinationChunks) {
+            val response = service.getDistanceMatrix(
+                origins = origin,
+                destinations = destinations,
+                apiKey = apiKey,
+                mode = "walking"
+            )
+            if (response.isSuccessful) {
+                val distanceMatrix = response.body()
+                Log.e("DirectionsError", "$distanceMatrix")
+                val distances = distanceMatrix?.rows?.firstOrNull()?.elements
+
+                if (distances != null) {
+                    for ((i, element) in distances.withIndex()) {
+                        val distance = element.distance.value
+                        if (distance < minDistance) {
+                            minDistance = distance
+                            closestBusStop =
+                                busStops[i + destinationChunks.indexOf(destinations) * 25]
+                        }
+                    }
+                }
+            } else {
+                Log.e("DirectionsError", "Error: ${response.errorBody()?.string()}")
+            }
+        }
+
+        Pair(closestBusStop, minDistance)
+    }
+
+    private fun showBusStopDialog(busStop: BusStop, distance: Float) {
+        AlertDialog.Builder(this@MapsActivity)
+            .setTitle("Ve a la estación más cercana")
+            .setMessage("La estación más cercana es '${busStop.name}' y está a ${distance.toInt()} metros.")
+            .setNegativeButton("Okay", null)
+            .show()
+    }
+
+    private suspend fun busStopsToBeVisited(
+        busStopOrigin: BusStop,
+        marker: Marker,
+        busStops: List<BusStop>
+    ) {
         val busStopsOD = getBusStopsToTravel(busStopOrigin, marker, busStops)
         drawRoutesAndShowTimes(busStopsOD, marker)
     }
-    private fun setupLocationUpdates() {
-        if (isLocationUpdatesActive) return
-        val locationRequest = LocationRequest.create().apply {
-            interval = 1000
-            fastestInterval = 500
-            priority = LocationRequest.PRIORITY_HIGH_ACCURACY
-        }
 
-        locationCallback = object : LocationCallback() {
-            override fun onLocationResult(locationResult: LocationResult) {
-                locationResult.locations.forEach { location ->
-                    updateCameraPosition(LatLng(location.latitude, location.longitude))
-                }
-            }
-        }
-
-        // Start location updates
+    private fun updateCurrentLocation() {
         if (isLocationPermissionGranted()) {
-            fusedLocationProviderClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper())
-            isLocationUpdatesActive = true // Set the flag to true
+            val locationRequest = createLocationRequest()
+            fusedLocationProviderClient.requestLocationUpdates(
+                locationRequest,
+                locationCallback,
+                Looper.getMainLooper()
+            )
         } else {
-            requestLocationPermission()
+            Log.e("LocationError", "Permisos de ubicación no concedidos.")
+            // Manejo de permisos, como solicitarlos al usuario
         }
     }
+
+    private fun createLocationRequest(): LocationRequest {
+        return LocationRequest.create().apply {
+            interval = 2000 // Tiempo entre actualizaciones (2 segundos)
+            fastestInterval = 1000 // Tiempo máximo que se permite entre actualizaciones (1 segundo)
+            priority = LocationRequest.PRIORITY_HIGH_ACCURACY // Alta precisión
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        fusedLocationProviderClient.removeLocationUpdates(locationCallback)
+    }
+
+
     private fun updateCameraPosition(latLangLocation: LatLng) {
         val location = Location("UserLocation")
         location.latitude = latLangLocation.latitude
@@ -502,7 +606,11 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         mMap.animateCamera(CameraUpdateFactory.newCameraPosition(cameraPosition))
     }
 
-    private suspend fun getBusStopsToTravel(busStopOrigin: BusStop, marker: Marker, busStops: List<BusStop>): MutableList<BusStop> {
+    private suspend fun getBusStopsToTravel(
+        busStopOrigin: BusStop,
+        marker: Marker,
+        busStops: List<BusStop>
+    ): MutableList<BusStop> {
         return withContext(Dispatchers.Main) { // Switch to Main thread
             val busStopsOD = mutableListOf<BusStop>()
             var flag = false
@@ -531,29 +639,183 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         withContext(Dispatchers.Main) {
             marker.hideInfoWindow()
             clearOldRoutes()
+            hideProgressBar(progressBar)
             hideSearchBarAndShowDialog()
-            val searchBar = findViewById<LinearLayout>(R.id.searchContainer)
-            searchBar.visibility = View.GONE
-            for (i in busStopsOD.indices) {
-                if (i < busStopsOD.size - 1) {
-                    getRoute(busStopsOD[i], busStopsOD[i + 1])
+
+            val origin = busStopsOD[0]
+            val destination = busStopsOD.last()
+            val waypoints = gettingWaypointsFromDestinations(busStopsOD)
+            updateCurrentLocation()
+
+            Log.e("Waypoints", "Lista: $waypoints")
+            getRoute(origin, destination, waypoints)
+
+            val travelTimes = mutableMapOf<BusStop, Pair<String, String>>()
+            var currentStopIndex = 0
+            var alertFinalDestinationShown = false
+
+            while (currentStopIndex < busStopsOD.size - 1) {
+                val busStopDestination = busStopsOD[currentStopIndex + 1]
+                val busStopOrigin = busStopsOD[currentStopIndex]
+
+                if (destination == busStopDestination) {
+                    alertUserForFinalDestination()
+                    alertFinalDestinationShown = true
                 }
-            }
-            // Show times for each route between bus stops
-            lifecycleScope.launch {
-                for (i in busStopsOD.indices) {
-                    if (i < busStopsOD.size - 1) {
-                        showTimeToDestination(busStopsOD[i], busStopsOD[i + 1])
+
+                // Obtener distancia y duración
+                val (distance, duration) = travelTimes[busStopDestination] ?: run {
+                    val (dist, dur) = getDistanceAndTime(busStopOrigin, busStopDestination).await()
+                    travelTimes[busStopDestination] = Pair(dist, dur)
+                    Pair(dist, dur)
+                }
+
+                var hasArrived = false
+                while (!hasArrived) {
+                    delay(5000)
+                    updateCurrentLocation()
+                    val currentDistance = calculateDistance(
+                        LatLng(
+                            currentLocation.latitude,
+                            currentLocation.longitude
+                        ), LatLng(busStopDestination.latitude, busStopDestination.longitude)
+                    )
+
+                    hasArrived = updateTravelInfo(busStopDestination, currentDistance, duration)
+
+                    if (alertFinalDestinationShown && hasArrived) {
+                        showAlertDialog()
+                        endTravel()
+                    }
+                    if (hasArrived) {
+                        Log.e("Directions", "Llegaste a la parada: ${busStopDestination.name}")
+                        currentStopIndex++
                     }
                 }
             }
         }
     }
 
-    private fun hideSearchBarAndShowDialog(){
+    private fun endTravel() {
+        val container = findViewById<LinearLayout>(R.id.traveling_container)
+        val searchBar = findViewById<LinearLayout>(R.id.searchContainer)
+        container.visibility = View.GONE
+        searchBar.visibility = View.VISIBLE
+
+        val cameraPosition = CameraPosition.Builder()
+            .target(currentLocation)
+            .zoom(16f)
+            .bearing(0f)
+            .tilt(0f)
+            .build()
+
+        mMap.animateCamera(CameraUpdateFactory.newCameraPosition(cameraPosition))
+        clearOldRoutes()
+        createRoutes()
+        stopLocationUpdates()
+        btnCancelTravel.visibility = View.GONE
+    }
+
+    private fun showAlertDialog() {
+        val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+        vibrator.vibrate(VibrationEffect.createOneShot(1000, VibrationEffect.DEFAULT_AMPLITUDE))
+        val builder = AlertDialog.Builder(this)
+        builder.setTitle("¡Llegaste a tu destino!")
+            .setMessage("Haz llegado a tu destino, gracias por viajar con Nintrip :)")
+            .setPositiveButton("OK") { dialog, _ ->
+                dialog.dismiss()
+            }
+            .setCancelable(false)
+        builder.create().show()
+    }
+
+    private fun alertUserForFinalDestination() {
+        // Hacer vibrar el dispositivo
+        val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+        vibrator.vibrate(
+            VibrationEffect.createOneShot(
+                1000,
+                VibrationEffect.DEFAULT_AMPLITUDE
+            )
+        ) // Vibrar por 1 segundo
+
+        // Reproducir sonido de alerta
+//        val mediaPlayer = MediaPlayer.create(this, R.raw.alert_sound) // Asegúrate de tener el archivo en res/raw
+//        mediaPlayer.start()
+
+        val builder = AlertDialog.Builder(this)
+        builder.setTitle("¡Preparate para bajar!")
+            .setMessage("La siguiente estación es tu destino.")
+            .setPositiveButton("Okay") { dialog, _ ->
+                dialog.dismiss()
+            }
+            .setCancelable(false)
+        builder.create().show()
+    }
+
+    private fun gettingWaypointsFromDestinations(busStopsOD: List<BusStop>): String {
+        val waypointsBuilder = StringBuilder()
+
+        for (busStop in busStopsOD) {
+            if (busStop.waypoints != null && busStop != busStopsOD[0]) {
+                if (waypointsBuilder.isNotEmpty()) {
+                    waypointsBuilder.append("|")
+                }
+                waypointsBuilder.append(busStop.waypoints)
+                Log.e(
+                    "Waypoints",
+                    "Waypoints agregado de ${busStop.name} con valor ${busStop.waypoints}"
+                )
+            } else {
+                if (waypointsBuilder.isNotEmpty()) {
+                    waypointsBuilder.append("|")
+                }
+                waypointsBuilder.append(latLangToStr(LatLng(busStop.latitude, busStop.longitude)))
+                Log.e("Waypoints", "Estacion agregada como waypoint: ${busStop.name}")
+            }
+        }
+
+        return waypointsBuilder.toString()
+    }
+
+    private fun updateTravelInfo(
+        busStopDestination: BusStop,
+        currentDistance: Float,
+        duration: String
+    ): Boolean {
+        val title = findViewById<TextView>(R.id.traveling_container_title)
+        val showStop = findViewById<TextView>(R.id.traveling)
+        val timer = findViewById<TextView>(R.id.traveling_container_timer)
+
+        return if (currentDistance < 10f) {
+            showStop.text = "Estás en"
+            title.text = "${busStopDestination.name}"
+            true
+        } else {
+            showStop.text = "Siguiente estación"
+            title.text = "${busStopDestination.name}"
+            timer.text = duration
+            false
+        }
+    }
+
+    private fun calculateDistance(start: LatLng, end: LatLng): Float {
+        val results = FloatArray(1)
+        Location.distanceBetween(
+            start.latitude,
+            start.longitude,
+            end.latitude,
+            end.longitude,
+            results
+        )
+        return results[0] // Devuelve la distancia en metros
+    }
+
+    private fun hideSearchBarAndShowDialog() {
         val container = findViewById<LinearLayout>(R.id.traveling_container)
         val searchBar = findViewById<LinearLayout>(R.id.searchContainer)
         container.visibility = View.VISIBLE
+        searchBar.visibility = View.GONE
         btnCancelTravel.visibility = View.VISIBLE
 
         btnCancelTravel.setOnClickListener {
@@ -581,7 +843,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
                 createRoutes()
                 stopLocationUpdates()
                 btnCancelTravel.visibility = View.GONE
-                dialog.dismiss() // Optional here, as dialog is automatically dismissed
+                dialog.dismiss()
             }
             .setNegativeButton("No") { dialog, _ ->
                 dialog.dismiss()
@@ -596,35 +858,6 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         isLocationUpdatesActive = false
     }
 
-    @SuppressLint("SetTextI18n")
-    private suspend fun showTimeToDestination(busStopOrigin: BusStop, busStopDestination: BusStop) {
-        val title = findViewById<TextView>(R.id.traveling_container_title)
-        val showStop = findViewById<TextView>(R.id.traveling)
-        val timer = findViewById<TextView>(R.id.traveling_container_timer)
-        val busStopDestinationL = LatLng(busStopDestination.latitude, busStopDestination.longitude)
-        var distanceBetweenStation: Float
-
-        while (true) {
-            distanceBetweenStation = withContext(Dispatchers.IO) {
-                getDistance(currentLocation, busStopDestinationL).await().toFloat()
-            }
-            withContext(Dispatchers.Main) {
-                if (distanceBetweenStation < 5f) {
-                    showStop.text = "Estás en la estación"
-                    title.text = "${busStopDestination.name}"
-                    timer.text = "0 segundos"
-                    return@withContext
-                } else {
-                    val (distance, duration) = getDistanceAndTime(busStopOrigin, busStopDestination).await()
-                    showStop.text = "Siguiente estación"
-                    title.text = "${busStopDestination.name}"
-                    timer.text = "$duration"
-                }
-            }
-            delay(10)
-        }
-    }
-
     private suspend fun hideProgressBar(progressBar: ProgressBar) {
         withContext(Dispatchers.Main) {
             progressBar.visibility = View.GONE
@@ -632,11 +865,10 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         }
     }
 
-    private fun showToast(message: String) {
-        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
-    }
-
-    private fun getDistanceAndTime(origin: BusStop, destination: BusStop): Deferred<Pair<String, String>> {
+    private fun getDistanceAndTime(
+        origin: BusStop,
+        destination: BusStop
+    ): Deferred<Pair<String, String>> {
         val apiKey = getString(R.string.api_key)
         val waypointsStr = destination.waypoints ?: ""
         val originLocation = latLangToStr(LatLng(origin.latitude, origin.longitude))
@@ -645,6 +877,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         // Create a CompletableDeferred to handle the result
         val deferredResult = CompletableDeferred<Pair<String, String>>()
 
+        // Make the API call
         val call = directionsAPI.getDirections(
             originLocation,
             destinationLocation,
@@ -654,7 +887,10 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         )
 
         call.enqueue(object : Callback<DirectionsResponse> {
-            override fun onResponse(call: Call<DirectionsResponse>, response: Response<DirectionsResponse>) {
+            override fun onResponse(
+                call: Call<DirectionsResponse>,
+                response: Response<DirectionsResponse>
+            ) {
                 if (response.isSuccessful) {
                     val directionsResponse = response.body()
                     val leg = directionsResponse?.routes?.get(0)?.legs?.get(0)
@@ -681,45 +917,49 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
 
-
-
-
-
-
-
-
-
-
-
     // Metodo para saber si el permiso "FINE LOCATION" esta aceptado o no
-    private fun isLocationPermissionGranted() = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+    private fun isLocationPermissionGranted() = ContextCompat.checkSelfPermission(
+        this,
+        Manifest.permission.ACCESS_FINE_LOCATION
+    ) == PackageManager.PERMISSION_GRANTED
 
     // Metodo para habilitar la localizacion al usuario
-    private fun enableLocation () {
-        if(!::mMap.isInitialized) return
-        if(isLocationPermissionGranted()){
+    private fun enableLocation() {
+        if (!::mMap.isInitialized) return
+        if (isLocationPermissionGranted()) {
             mMap.isMyLocationEnabled = true
 
             //Go to my current location
-            fusedLocationProviderClient.lastLocation.addOnSuccessListener(this) {
-                    location ->
-                if (location != null){
+            fusedLocationProviderClient.lastLocation.addOnSuccessListener(this) { location ->
+                if (location != null) {
                     lastLocation = location
                     currentLocation = LatLng(location.latitude, location.longitude)
                     mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLocation, 16f))
                 }
             }
-        }else{
+        } else {
             requestLocationPermission()
         }
     }
 
     //Metodo para pedir al usuario el permiso de ver su localizacion
-    private fun requestLocationPermission () {
-        if(ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.ACCESS_FINE_LOCATION)){
-            Toast.makeText(this, "Habilita los permisos de localización en ajustes", Toast.LENGTH_SHORT).show()
-        }else {
-            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), REQUEST_CODE_LOCATION)
+    private fun requestLocationPermission() {
+        if (ActivityCompat.shouldShowRequestPermissionRationale(
+                this,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            )
+        ) {
+            Toast.makeText(
+                this,
+                "Habilita los permisos de localización en ajustes",
+                Toast.LENGTH_SHORT
+            ).show()
+        } else {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
+                REQUEST_CODE_LOCATION
+            )
         }
     }
 
@@ -729,21 +969,25 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         permissions: Array<out String>,
         grantResults: IntArray
     ) {
-        when(requestCode) {
-            REQUEST_CODE_LOCATION -> if (grantResults.isNotEmpty() && grantResults[0]== PackageManager.PERMISSION_GRANTED){
+        when (requestCode) {
+            REQUEST_CODE_LOCATION -> if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 mMap.isMyLocationEnabled = true
                 //Go to my current location
-                fusedLocationProviderClient.lastLocation.addOnSuccessListener(this) {
-                        location ->
-                    if (location != null){
+                fusedLocationProviderClient.lastLocation.addOnSuccessListener(this) { location ->
+                    if (location != null) {
                         lastLocation = location
                         currentLocation = LatLng(location.latitude, location.longitude)
                         mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLocation, 16f))
                     }
                 }
-            }else{
-                Toast.makeText(this, "Ve a ajustes para aceptar los permisos de localizacion", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(
+                    this,
+                    "Ve a ajustes para aceptar los permisos de localizacion",
+                    Toast.LENGTH_SHORT
+                ).show()
             }
+
             else -> {}
         }
     }

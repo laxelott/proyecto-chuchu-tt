@@ -86,7 +86,7 @@
         android:gravity="center"
         android:orientation="vertical"
         android:paddingVertical="10dp"
-        android:visibility="gone">
+        android:visibility="visible">
 
         <TextView
             android:id="@+id/traveling"
