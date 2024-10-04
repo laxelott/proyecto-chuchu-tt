@@ -2,24 +2,24 @@ doctype html
 html(lang='en')
   head
     meta(charset='UTF-8')
-    meta(name='viewport' content='width=device-width, initial-scale=1.0')
-    link(rel='stylesheet' href='../stylesheets/index.css')
-    link(rel='preconnect' href='https://fonts.googleapis.com')
-    link(rel='preconnect' href='https://fonts.gstatic.com' crossorigin)
-    link(href='https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap' rel='stylesheet')
+    meta(name='viewport', content='width=device-width, initial-scale=1.0')
+    link(rel='stylesheet', href='../stylesheets/index.css')
+    link(rel='preconnect', href='https://fonts.googleapis.com')
+    link(rel='preconnect', href='https://fonts.gstatic.com', crossorigin)
+    link(href='https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap', rel='stylesheet')
     title Inicio
   body
     header
       .logo
-        img(src='../icons/location.svg' alt='Logo')
+        img(src='../icons/location.svg', alt='Logo')
         span Nintrip
       .nav
-        a(href='index.html') Inicio
-        a(href='./pasajero.html') Pasajero
-        a(href='./conductor.html') Conductor
-        a.button-login(href='./login.html')
+        a(href='/') Inicio
+        a(href='./pasajero') Pasajero
+        a(href='./conductor') Conductor
+        a.button-login(href='./login')
           p Inicio de sesión
-          img(src='../icons/Vector.svg' alt='Flecha')
+          img(src='../icons/Vector.svg', alt='Flecha')
     section
       article.title-section
         .titles
@@ -28,7 +28,7 @@ html(lang='en')
           br
           span Toda la información del transporte público de la CDMX a tu alcance
         div
-          img(src='../images/home.png' alt='Home image')
+          img(src='../images/home.png', alt='Home image')
       article.what-to-do
         h2
           | ¿Qué puedes realizar con 
@@ -36,23 +36,23 @@ html(lang='en')
           | nuestra app?
         .container
           div
-            img(src='../images/tiempos.png' alt='Tiempos de llegada')
+            img(src='../images/tiempos.png', alt='Tiempos de llegada')
             h3 Tiempos de llegada
             span
               | Podrás observar en tiempo real los tiempos de llegada del transporte a las diferentes
               | estaciones
           div
-            img(src='../images/incidencias.png' alt='Incidencias')
+            img(src='../images/incidencias.png', alt='Incidencias')
             h3 Incidencias
             span
               | En el mapa, se mostrarán los distintos accidentes que estén ocurriendo y puedan afectar el
               | servicio
           div
-            img(src='../images/mobile.png' alt='Monitoreo')
+            img(src='../images/mobile.png', alt='Monitoreo')
             h3 Monitoreo
             span Tendrás acceso a la ubicación en tiempo real del transporte público
       article.viaje-inteligente
-        img(src='../images/mobile-screen.png' alt='Telefono celular')
+        img(src='../images/mobile-screen.png', alt='Telefono celular')
         section
           h2 Experimenta un viaje más inteligente
           span
@@ -63,7 +63,7 @@ html(lang='en')
             | cualquier incidencia que pueda surgir.
       article.about-us
         section.us
-          img(src='../images/us.png' alt='Sobre nosotros')
+          img(src='../images/us.png', alt='Sobre nosotros')
           h3 Sobre nosotros
           span
             | Somos un grupo de estudiantes de la Escuela Superior de Cómputo del Instituto Politécnico Nacional
@@ -73,7 +73,7 @@ html(lang='en')
             | también fomenta el uso del transporte público y reduce la congestión vehicular.
         section.mision-vision
           div
-            img(src='../images/check.png' alt='Check')
+            img(src='../images/check.png', alt='Check')
             h3 Misión
             span
               | Ser la herramienta indispensable para los ciudadanos que buscan una movilidad urbana más
@@ -81,7 +81,7 @@ html(lang='en')
               | ágil
               | y confiable
           div
-            img(src='../images/check.png' alt='Check')
+            img(src='../images/check.png', alt='Check')
             h3 Visión
             span
               | Ser la aplicación líder en el mercado de movilidad urbana, ofreciendo la información más
@@ -91,7 +91,7 @@ html(lang='en')
               | usuarios y las autoridades
     footer
       .logo
-        img(src='../icons/location-white.svg' alt='Logo')
+        img(src='../icons/location-white.svg', alt='Logo')
         span Nintrip
       .school
         h1 Instituto Politécnico Nacional
