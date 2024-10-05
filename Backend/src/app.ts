@@ -8,8 +8,6 @@ import authRouter from './routes/authRouter.js';
 import transportDataRouter from './routes/transportDataRouter.js';
 import locationRouter from './routes/locationRouter.js';
 import incidentsRouter from './incidents/incidentsDataRouter.js';
-import driverRouter from './routes/driverRouter.js';
-import staticRouter from './routes/staticRouter.js'
 
 const app:Express = express();
 
@@ -32,7 +30,6 @@ app.use('/api/auth/', authRouter);
 app.use('/api/data/', transportDataRouter);
 app.use('/api/location/', locationRouter);
 app.use('/api/incidents/', incidentsRouter);
-app.use('/api/driver/', driverRouter);
 
 
 // catch 404 and forward to error handler
