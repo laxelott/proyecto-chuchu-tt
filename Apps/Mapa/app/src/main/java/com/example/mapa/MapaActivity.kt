@@ -145,10 +145,6 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
                             LatLng(currentLocation.latitude,currentLocation.longitude),
                             LatLng(busStops[0].latitude, busStops[0].longitude)
                         )
-                        Log.e(
-                            "Transport response",
-                            "Dist de mi ubiacacion a a la estacion $distance"
-                        )
                         if (distance <= 10f
                         ) {
                             setupMapMarkersAndRoutes()
@@ -331,7 +327,7 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
         withContext(Dispatchers.Main) {
             val travelTimes = mutableMapOf<BusStop, Pair<String, String>>()
             var currentStopIndex = 0
-            val destination = busStops[2]
+            val destination = busStops.first()
             var alertFinalDestinationShown = false
 
             while (currentStopIndex < busStops.size - 1) {
