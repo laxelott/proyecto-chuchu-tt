@@ -4,7 +4,6 @@ import path from 'path';
 import cookieParser from 'cookie-parser';
 import logger from 'morgan';
 
-import indexRouter from './routes/indexRouter.js';
 import authRouter from './routes/authRouter.js';
 import transportDataRouter from './routes/transportDataRouter.js';
 import locationRouter from './routes/locationRouter.js';
@@ -12,10 +11,7 @@ import incidentsRouter from './incidents/incidentsDataRouter.js';
 
 const app:Express = express();
 
-// view engine setup
-app.set('views', path.join(__dirname, './../assets/views'));
-app.set('view engine', 'jade');
-
+// logger
 app.use(logger('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -23,8 +19,13 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, './../assets/public')));
 
 
+// view engine setup
+app.set('views', path.join(__dirname, './../assets/views'));
+app.set('view engine', 'jade');
+
+
 // routers
-app.use('/', indexRouter);
+app.use('/', staticRouter)
 app.use('/api/auth/', authRouter);
 app.use('/api/data/', transportDataRouter);
 app.use('/api/location/', locationRouter);

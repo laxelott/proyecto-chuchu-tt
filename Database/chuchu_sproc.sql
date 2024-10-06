@@ -1,5 +1,6 @@
-DELIMITER $$
+USE Chuchu;
 
+DELIMITER $$
 
 -- -----------------------------------------------------------------------------
   -- testData
@@ -18,28 +19,61 @@ END$$
 
 
 -- -----------------------------------------------------------------------------
-  -- authorizeDriver
+  -- loginDriver
 -- -----------------------------------------------------------------------------
-DROP PROCEDURE IF EXISTS authorizeDriver$$
-CREATE PROCEDURE authorizeDriver(
-    `pUsername` datetime,
-    `pPassword` datetime
+DROP PROCEDURE IF EXISTS loginDriver$$
+CREATE PROCEDURE loginDriver(
+    `pUsername` varchar(100),
+    `pPassword` varchar(255)
 )
 BEGIN
 
     DECLARE `login` int;
     DECLARE `newToken` varchar(40);
     CALL generateToken(newToken);
-    
-    SELECT count(*) AS auth FROM Driver d
-        WHERE d.username = pUsername
-        AND d.password = pPassword
-        INTO login;
 
+    select 0 as test;
+    IF (SELECT token FROM Driver d WHERE d.username = pUsername) IS NOT NULL THEN
+        SELECT 2 INTO login;
+    ELSE
+        select 1 as test;
+        SELECT count(*) AS auth FROM Driver d
+            WHERE d.username = pUsername
+            AND d.password = pPassword
+            INTO login;
+        
+        select 2 as test;
+        UPDATE Driver d
+            SET d.token = newToken;
+
+    END IF;
+   
+    select 3 as test;
     IF login = 1 THEN
         SELECT login, newToken as token;
     ELSE
         SELECT login;
+    END IF;
+
+END$$
+
+
+-- -----------------------------------------------------------------------------
+  -- logoutDriver
+-- -----------------------------------------------------------------------------
+DROP PROCEDURE IF EXISTS logoutDriver$$
+CREATE PROCEDURE logoutDriver(
+    `pToken` varchar(40)
+)
+BEGIN
+
+    IF (SELECT COUNT(*) FROM Driver d WHERE d.token = pToken) > 0 THEN
+        UPDATE Driver d SET
+            d.token = NULL WHERE d.token = pToken;
+
+        SELECT 1 AS logout;
+    ELSE
+        SELECT 0 AS logout;
     END IF;
 
 END$$
@@ -77,6 +111,7 @@ BEGIN
         r.color,
         r.iconB64 as `icon`
     FROM Route r
+    INNER JOIN Transport t ON t.idTransport = r.idTransport
     WHERE r.idTransport = pIdTransport
     ORDER BY name;
 
@@ -272,13 +307,25 @@ BEGIN
     
     SET newToken = MD5(RAND());
     WHILE (
-        (SELECT COUNT(*) FROM Driver d WHERE d.token = newToken) +
-        (SELECT COUNT(*) FROM Admin a WHERE a.token = newToken)
+        (SELECT COUNT(*) FROM Driver d WHERE d.token = newToken)
     ) > 0 DO
         SET newToken = MD5(RAND());
     END WHILE;
 
     SELECT newToken INTO tokenOut;
+
+END$$
+
+-- -----------------------------------------------------------------------------
+  -- generateOutToken
+-- -----------------------------------------------------------------------------
+DROP PROCEDURE IF EXISTS generateOutToken$$
+CREATE PROCEDURE generateOutToken()
+BEGIN
+
+    DECLARE `newToken` varchar(40);
+    CALL generateToken(newToken);
+    SELECT newToken;
 
 END$$
 

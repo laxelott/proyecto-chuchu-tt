@@ -9,7 +9,7 @@ export class AuthDAO {
         return results;
     }
 
-    static async authorizeDriver(username: string, password: string) {
+    static async loginDriver(username: string, password: string) {
         const salt: any = (await SQLPool.query(
             "CALL findDriverSalt(?)",
             [username]
@@ -21,12 +21,21 @@ export class AuthDAO {
             const saltedKey = await AuthDAO.hashKey(password, salt);
 
             const results: any = await SQLPool.query(
-                "CALL authorizeDriver(?, ?)",
+                "CALL loginDriver(?, ?)",
                 [username, saltedKey]
             );
 
-            return results;
+            return results[0];
         }
+    }
+
+    static async logoutDriver(token: string) {
+        const results: any = await SQLPool.query(
+            "CALL logoutDriver(?)",
+            [token]
+        );
+
+        return results[0];
     }
 
     static async getHashedPassword(username: string, password: string) {
