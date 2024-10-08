@@ -44,7 +44,8 @@ BEGIN
         
         select 2 as test;
         UPDATE Driver d
-            SET d.token = newToken;
+            SET d.token = newToken
+            WHERE d.username = pUsername;
 
     END IF;
    
