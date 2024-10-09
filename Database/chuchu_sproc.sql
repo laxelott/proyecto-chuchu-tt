@@ -324,6 +324,58 @@ BEGIN
 END$$
 
 -- -----------------------------------------------------------------------------
+  -- reportLocation
+-- -----------------------------------------------------------------------------
+DROP PROCEDURE IF EXISTS reportLocation$$
+CREATE PROCEDURE reportLocation(
+    `pLat` double,
+    `pLong` double,
+    `pToken` varchar(40)
+)
+BEGIN
+
+    DECLARE vIdVehicle int;
+
+    IF (SELECT COUNT(*) FROM Vehicle v WHERE v.token = pToken) > 0 THEN
+        SET vIdVehicle = (SELECT idVehicle FROM Vehicle v WHERE v.token = pToken);
+
+        IF (SELECT COUNT(*) FROM Last_Location ll WHERE ll.idVehicle = vIdVehicle) = 0 THEN
+            INSERT INTO Last_Location(idVehicle, coordX, coordY) VALUES
+                (vIdVehicle, pLon, pLat);
+        ELSE 
+            UPDATE Last_Location SET
+                coordX = pLon,
+                coordY = pLat;
+        END IF;
+        
+        SELECT 0 AS error;
+    ELSE
+        SELECT 1 AS error, 'invalid-token' AS message;
+    END IF;
+
+END$$
+
+-- -----------------------------------------------------------------------------
+  -- getLocations
+-- -----------------------------------------------------------------------------
+DROP PROCEDURE IF EXISTS getLocations$$
+CREATE PROCEDURE getLocations(
+    `pIdRoute` int
+)
+BEGIN
+
+    SELECT
+        v.identifier,
+        ll.coordX as lon,
+        ll.coordY as lat
+    FROM Vehicle v
+        INNER JOIN Last_Location ll ON v.idVehicle = ll.idVehicle
+        INNER JOIN VehicleRoute vr ON v.idVehicle = vr.idVehicle
+        WHERE vr.idRoute = pIdRoute;
+
+END$$
+
+-- -----------------------------------------------------------------------------
   -- setDriverInactive
 -- -----------------------------------------------------------------------------
 DROP PROCEDURE IF EXISTS setDriverInactive$$
