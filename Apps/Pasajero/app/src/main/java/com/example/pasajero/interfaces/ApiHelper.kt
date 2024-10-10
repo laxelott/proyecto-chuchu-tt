@@ -18,7 +18,7 @@ class ApiHelper {
     * */
     // Prepare stm
     fun prepareApi(): ApiService {
-        val baseUrl = "https://chuchu-backend-sdhfdsksuq-vp.a.run.app/api/"
+        val baseUrl = "https://chuchu-backend-w3szgba2ra-vp.a.run.app/api/"
         val retrofit: Retrofit by lazy {
             Retrofit.Builder()
                 .baseUrl(baseUrl)
