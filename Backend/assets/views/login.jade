@@ -7,7 +7,7 @@ html(lang='en')
     link(rel='preconnect', href='https://fonts.googleapis.com')
     link(rel='preconnect', href='https://fonts.gstatic.com', crossorigin)
     link(href='https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap', rel='stylesheet')
-    title Conductor
+    title Admin Login
   body
     header
       .logo
@@ -22,10 +22,10 @@ html(lang='en')
           img(src='../icons/Vector.svg', alt='Flecha')
     section
       article
-        h1 Bienvenido
-        form(method='post')
-          label(for='name') Usuario
-          input#name(type='text', name='name', placeholder='Ingresa tu usuario')
+        h1 Bienvenido, Administrador
+        form(method='post', action='/api/auth/loginadmin')
+          label(for='username') Nombre de usuario
+          input#username(type='text', name='username', placeholder='Ingresa tu nombre de usuario')
           label(for='password') Contraseña
           input#password(type='password', name='password', placeholder='Ingresa tu contraseña')
           button(type='submit') Iniciar sesión

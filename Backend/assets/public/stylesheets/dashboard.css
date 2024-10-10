@@ -1,0 +1,60 @@
+@import url("base.css");
+@import url("navbar.css");
+
+.dashboard {
+  padding: 2rem;
+}
+
+h1 {
+  font-size: 4.4rem;
+  margin-bottom: 2rem;
+  color: var(--principal-green);
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 3rem;
+}
+
+.cards {
+  display: flex;
+  gap: 2rem;
+}
+
+.card {
+  background-color: var(--soft-blue);
+  padding: 2rem;
+  border-radius: 1rem;
+  width: 30%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  h3 {
+    font-size: 2.2rem;
+    color: var(--icon-text);
+  }
+  span {
+    font-size: 3.2rem;
+    font-weight: bold;
+    color: var(--black);
+  }
+}
+
+.actions {
+  ul {
+    list-style: none;
+    display: flex;
+    gap: 2rem;
+    li {
+      a {
+        background-color: var(--principal-green);
+        color: white;
+        padding: 1rem 2rem;
+        border-radius: 1rem;
+        text-decoration: none;
+        font-size: 1.8rem;
+      }
+    }
+  }
+}

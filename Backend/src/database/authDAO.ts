@@ -29,6 +29,27 @@ export class AuthDAO {
         }
     }
 
+    static async loginAdmin(username: string, password: string) {
+        const salt: any = (await SQLPool.query(
+            "CALL findAdminSalt(?)",
+            [username]
+        ))[0].salt;
+
+        if (salt == "not-found") {
+            throw Error("Usuario no encontrado!");
+        } else {
+            const saltedKey = await AuthDAO.hashKey(password, salt);
+
+            const results: any = await SQLPool.query(
+                "CALL loginAdmin(?, ?)",
+                [username, saltedKey]
+            );
+
+            return results[0];
+        }
+    }
+
+
     static async logoutDriver(token: string) {
         const results: any = await SQLPool.query(
             "CALL logoutDriver(?)",

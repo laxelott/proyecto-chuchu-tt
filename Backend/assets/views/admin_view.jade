@@ -1,0 +1,53 @@
+doctype html
+html(lang='en')
+  head
+    meta(charset='UTF-8')
+    meta(name='viewport', content='width=device-width, initial-scale=1.0')
+    link(rel='stylesheet', href='../stylesheets/base.css') 
+    link(rel='stylesheet', href='../stylesheets/dashboard.css') 
+    link(rel='preconnect', href='https://fonts.googleapis.com')
+    link(rel='preconnect', href='https://fonts.gstatic.com', crossorigin)
+    link(href='https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap', rel='stylesheet')
+    title Dashboard Admin
+  body
+    header
+      nav
+        ul
+          li
+            a(href='/') Inicio
+          li
+            a(href='/admin/users') Usuarios
+          li
+            a(href='/admin/reports') Reportes
+          li
+            a(href='/admin/settings') Configuraciones
+          li
+            form(method='post') 
+              button(type='submit') Cerrar Sesión
+
+    main
+      section.dashboard
+        h1 Dashboard del Administrador
+        .content
+          h2 Bienvenido al panel de control
+          .cards
+            .card
+              h3 Usuarios activos
+              span 120
+            .card
+              h3 Reportes generados
+              span 35
+            .card
+              h3 Tareas pendientes
+              span 15
+          .actions
+            h2 Acciones rápidas
+            ul
+              li
+                a(href='/admin/create-user') Crear nuevo usuario
+              li
+                a(href='/admin/generate-report') Generar reporte
+              li
+                a(href='/admin/settings') Configurar sistema
+    footer
+      p &copy; 2024 Nintrip - Todos los derechos reservados

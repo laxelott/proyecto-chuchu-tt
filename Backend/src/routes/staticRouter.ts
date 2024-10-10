@@ -24,5 +24,8 @@ router.get('/layout', function(req, res, next) {
 router.get('/login', function(req, res, next) {
     res.render("login", {})
 });
+router.get('/admin_view', function(req, res, next) {
+    res.render("admin_view", {})
+});
 
 export default router;
