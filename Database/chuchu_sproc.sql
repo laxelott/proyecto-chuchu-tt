@@ -32,24 +32,20 @@ BEGIN
     DECLARE `newToken` varchar(40);
     CALL generateToken(newToken);
 
-    select 0 as test;
     IF (SELECT token FROM Driver d WHERE d.username = pUsername) IS NOT NULL THEN
         SELECT 2 INTO login;
     ELSE
-        select 1 as test;
         SELECT count(*) AS auth FROM Driver d
             WHERE d.username = pUsername
             AND d.password = pPassword
             INTO login;
         
-        select 2 as test;
         UPDATE Driver d
             SET d.token = newToken
             WHERE d.username = pUsername;
 
     END IF;
    
-    select 3 as test;
     IF login = 1 THEN
         SELECT login, newToken as token;
     ELSE
@@ -191,6 +187,7 @@ BEGIN
 
     SELECT DISTINCT
     	d.name,
+        t.name as 'transportName',
         v.identifier AS 'vehicleIdentifier',
         CONCAT(r.name, ' - ', r.description) AS 'routeName',
         r.color AS 'routeColor',
@@ -200,7 +197,99 @@ BEGIN
         INNER JOIN Vehicle v ON dv.idVehicle = v.idVehicle
         INNER JOIN Vehicle_Route vr ON v.idVehicle = vr.idVehicle
         INNER JOIN Route r ON vr.idRoute = r.idRoute
+        INNER JOIN Transport t ON r.idTransport = t.idTransport
     WHERE d.token = pToken;
+
+END$$
+
+-- -----------------------------------------------------------------------------
+  -- addIncident
+-- -----------------------------------------------------------------------------
+DROP PROCEDURE IF EXISTS addIncident$$
+CREATE PROCEDURE addIncident(
+    `pIncidentType` int,
+    `pIdRoute` int,
+    `pLon` double,
+    `pLat` double,
+    `pToken` varchar(40),
+    `pDescription` varchar(255)
+)
+BEGIN
+
+    DECLARE vNewId INT;
+
+    IF (SELECT COUNT(*) FROM IncidentType it WHERE it.idIncidentType = pIncidentType) > 0 THEN
+        IF (SELECT COUNT(*) FROM Driver d WHERE d.token = pToken) > 0 THEN
+
+            INSERT INTO Incident (idRoute, description, coordX, coordY)
+            VALUES (
+                pIdRoute, pDescription, pLon, pLat
+            );
+
+            SET vNewId = LAST_INSERT_ID();
+
+            INSERT INTO Incident_IncidentType(idIncident, idIncidentType)
+            VALUES (
+                vNewId, pIncidentType
+            );
+            INSERT INTO Driver_Incident(idIncident, idDriver)
+            VALUES (
+                vNewId, (SELECT idDriver FROM Driver d WHERE d.token = pToken)
+            );
+
+            SELECT 0 AS error, vNewId as `idIncident`;
+
+        ELSE 
+            SELECT 2 AS error, 'invalid-token' AS message;
+        END IF;
+    ELSE
+        SELECT 1 AS error, 'type-not-found' AS message;
+    END IF;
+
+    SELECT DISTINCT
+    	d.name,
+        t.name as 'transportName',
+        v.identifier AS 'vehicleIdentifier',
+        CONCAT(r.name, ' - ', r.description) AS 'routeName',
+        r.color AS 'routeColor',
+        r.iconB64 AS 'routeIcon'
+    FROM Driver d
+        INNER JOIN Driver_Vehicle dv ON d.idDriver = d.idDriver
+        INNER JOIN Vehicle v ON dv.idVehicle = v.idVehicle
+        INNER JOIN Vehicle_Route vr ON v.idVehicle = vr.idVehicle
+        INNER JOIN Route r ON vr.idRoute = r.idRoute
+        INNER JOIN Transport t ON r.idTransport = t.idTransport
+    WHERE d.token = pToken;
+
+END$$
+
+-- -----------------------------------------------------------------------------
+  -- removeIncident
+-- -----------------------------------------------------------------------------
+DROP PROCEDURE IF EXISTS removeIncident$$
+CREATE PROCEDURE removeIncident(
+    `pIdIncident` int,
+    `pToken` varchar(40)
+)
+BEGIN
+
+    IF (SELECT COUNT(*) FROM Incident i WHERE i.idIncident = pIdIncident) > 0 THEN
+        IF (SELECT COUNT(*) FROM Driver d WHERE d.token = pToken) > 0 THEN
+
+            DELETE FROM Driver_Incident di
+                WHERE di.idIncident = pIdIncident;
+            DELETE FROM Incident_IncidentType iit
+                WHERE iit.idIncident = pIdIncident;
+            DELETE FROM Incident i
+                WHERE i.idIncident = pIdIncident;
+
+            SELECT 0 AS error;
+        ELSE 
+            SELECT 2 AS error, 'invalid-token' AS message;
+        END IF;
+    ELSE
+        SELECT 1 AS error, 'incident-not-found' AS message;
+    END IF;
 
 END$$
 
@@ -231,6 +320,58 @@ BEGIN
     END IF;
 
     SELECT error;
+
+END$$
+
+-- -----------------------------------------------------------------------------
+  -- reportLocation
+-- -----------------------------------------------------------------------------
+DROP PROCEDURE IF EXISTS reportLocation$$
+CREATE PROCEDURE reportLocation(
+    `pLat` double,
+    `pLong` double,
+    `pToken` varchar(40)
+)
+BEGIN
+
+    DECLARE vIdVehicle int;
+
+    IF (SELECT COUNT(*) FROM Vehicle v WHERE v.token = pToken) > 0 THEN
+        SET vIdVehicle = (SELECT idVehicle FROM Vehicle v WHERE v.token = pToken);
+
+        IF (SELECT COUNT(*) FROM Last_Location ll WHERE ll.idVehicle = vIdVehicle) = 0 THEN
+            INSERT INTO Last_Location(idVehicle, coordX, coordY) VALUES
+                (vIdVehicle, pLon, pLat);
+        ELSE 
+            UPDATE Last_Location SET
+                coordX = pLon,
+                coordY = pLat;
+        END IF;
+        
+        SELECT 0 AS error;
+    ELSE
+        SELECT 1 AS error, 'invalid-token' AS message;
+    END IF;
+
+END$$
+
+-- -----------------------------------------------------------------------------
+  -- getLocations
+-- -----------------------------------------------------------------------------
+DROP PROCEDURE IF EXISTS getLocations$$
+CREATE PROCEDURE getLocations(
+    `pIdRoute` int
+)
+BEGIN
+
+    SELECT
+        v.identifier,
+        ll.coordX as lon,
+        ll.coordY as lat
+    FROM Vehicle v
+        INNER JOIN Last_Location ll ON v.idVehicle = ll.idVehicle
+        INNER JOIN VehicleRoute vr ON v.idVehicle = vr.idVehicle
+        WHERE vr.idRoute = pIdRoute;
 
 END$$
 

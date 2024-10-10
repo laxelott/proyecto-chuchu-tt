@@ -80,6 +80,25 @@ CREATE TABLE `Incident`(
         REFERENCES `Route` (`idRoute`)
 );
 
+/****** Object:  Table `IncidentType` ******/
+CREATE TABLE `IncidentType`(
+    `idIncidentType` int NOT NULL AUTO_INCREMENT,
+    `name` varchar(255) NOT NULL,
+    CONSTRAINT `PK_IncidentType` PRIMARY KEY (`idIncidentType` ASC)
+);
+
+/****** Object:  Table `Incident_IncidentType` ******/
+CREATE TABLE `Incident_IncidentType`(
+    `idIncident_IncidentType` int NOT NULL AUTO_INCREMENT,
+    `idIncident` int NOT NULL,
+    `idIncidentType` int NOT NULL,
+    CONSTRAINT `PK_Incident_IncidentType` PRIMARY KEY (`idIncident_IncidentType` ASC),
+    CONSTRAINT `FK_Incident_IncidentType_Incident` FOREIGN KEY (`idIncident`)
+        REFERENCES `Incident` (`idIncident`),
+    CONSTRAINT `FK_Incident_IncidentType_IncidentType` FOREIGN KEY (`idIncidentType`)
+        REFERENCES `IncidentType` (`idIncidentType`)
+);
+
 /****** Object:  Table `Driver_Incident` ******/
 CREATE TABLE `Driver_Incident`(
     `idDriverIncident` int NOT NULL AUTO_INCREMENT,

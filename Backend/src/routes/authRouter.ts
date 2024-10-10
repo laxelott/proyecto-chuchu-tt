@@ -29,4 +29,25 @@ router.post("/getHashedKey/:username/:password", (req, res) => {
         .catch((err) => {res.send("ERROR: " + err)});
 })
 
+// Router de Administrador
+router.post('/loginadmin', function(req, res, next) {
+    let username = req.body.username;
+    let password = req.body.password;
+
+    console.log("Datos recibidos:", { username, password });
+
+    AuthDAO.loginAdmin(username, password)
+        .then((result) => {
+            if (result) {
+                res.redirect('/admin_view'); // Redirige al panel de administrador
+            } else {
+                res.send("Error en la autenticación");
+            }
+        })
+        .catch((err) => { 
+            res.send("ERROR: " + err); 
+        });
+});
+
+
 export default router;
