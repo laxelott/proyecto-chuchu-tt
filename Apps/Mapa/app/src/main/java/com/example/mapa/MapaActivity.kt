@@ -72,12 +72,12 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
     private var busStops: List<BusStop> = listOf()
     private var busStopMarkers: MutableMap<BusStop, Marker> = mutableMapOf()
     private lateinit var directionsAPI: GoogleDirectionsApi
-    private var waypoints: List<LatLng> = listOf()
     private lateinit var coroutineScope: CoroutineScope
     private lateinit var progressBar: ProgressBar
     private lateinit var background: LinearLayout
     private val polylines: MutableList<Polyline> = mutableListOf()
     private var isLocationUpdatesActive = false
+    private var fetchBusStopsJob: Job? = null
     private val locationCallback = object : LocationCallback() {
         override fun onLocationResult(locationResult: LocationResult) {
             locationResult.locations.forEach { location ->
@@ -129,7 +129,15 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
         directionsAPI = retrofit.create(GoogleDirectionsApi::class.java)
 
         // Configure location updates
-        setupLocationUpdates()
+        //setupLocationUpdates()
+    }
+
+
+
+    override fun onDestroy() {
+        super.onDestroy()
+        // Cancelar cualquier corutina en proceso si la actividad se destruye
+        fetchBusStopsJob?.cancel()
     }
 
     private fun fetchBusStops(service: ApiService) {
@@ -142,11 +150,11 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
                     busStops = busStopsInfo
                     runOnUiThread {
                         val distance = calculateDistance(
-                            LatLng(currentLocation.latitude,currentLocation.longitude),
+                            LatLng(currentLocation.latitude, currentLocation.longitude),
                             LatLng(busStops[0].latitude, busStops[0].longitude)
                         )
-                        if (distance <= 10f
-                        ) {
+                        Log.d("Distancia", "$distance")
+                        if (distance <= 10f) {
                             setupMapMarkersAndRoutes()
                             CoroutineScope(Dispatchers.IO).launch {
                                 startTravel()
@@ -159,6 +167,9 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
             }
         )
     }
+
+
+
 
     private fun setupMapMarkersAndRoutes() {
         if (!::mMap.isInitialized) return
@@ -316,6 +327,7 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private suspend fun showTimeToDestination(busStops: List<BusStop>) {
         withContext(Dispatchers.Main) {
+            showProgressBar()
             val travelTimes = mutableMapOf<BusStop, Pair<String, String>>()
             var currentStopIndex = 0
             val destination = busStops.first()
@@ -346,7 +358,7 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
                             currentLocation.longitude
                         ), LatLng(busStopDestination.latitude, busStopDestination.longitude)
                     )
-
+                    hideProgressBar()
                     hasArrived = updateTravelInfo(busStopDestination, currentDistance, duration)
 
                     if (alertFinalDestinationShown && hasArrived) {
@@ -490,7 +502,6 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
 
-
     private fun latLangToStr(latLng: LatLng) = "${latLng.latitude},${latLng.longitude}"
 
     private fun getDistanceAndTime(
@@ -615,16 +626,6 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
                 locationResult.locations.forEach { location ->
                     //updateCameraPosition(location)
                     // Check if the current location is within 5 meters of busStops[0]
-                    if (busStops.isNotEmpty()) {
-                        val busStopLocation = Location("Bus Stop 0").apply {
-                            latitude = busStops[0].latitude
-                            longitude = busStops[0].longitude
-                        }
-
-                        if (isWithinDistance(busStopLocation, 5f)) {
-                            showAlertDialog(this@MapaActivity)
-                        }
-                    }
                 }
             }
         }
@@ -657,16 +658,23 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     fun showAlertDialog(context: Context) {
-        AlertDialog.Builder(context).apply {
-            setTitle("Rango no permitido")
-            setMessage("No estas dentro dentro del rango para iniciar recorrido")
-            setPositiveButton("OK") { dialog, _ ->
-                if (context is Activity) context.finish()
-                dialog.dismiss()
+        if (context is Activity && !context.isFinishing) {
+            AlertDialog.Builder(context).apply {
+                setTitle("Rango no permitido")
+                setMessage("No estas dentro del rango para iniciar recorrido")
+                setPositiveButton("OK") { dialog, _ ->
+                    dialog.dismiss()
+                    if (!context.isFinishing) {
+                        context.finish()
+                    }
+                }
+                create().show()
             }
-            create().show()
+        } else {
+            Log.e("AlertDialog", "No se puede mostrar el diálogo: la actividad no está activa.")
         }
     }
+
 
     private fun startSendingDataPeriodically() {
         coroutineScope.launch {

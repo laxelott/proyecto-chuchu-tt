@@ -34,25 +34,25 @@ class ApiHelper {
     }
 
     // Getting data from DB
-    fun <T> getDataFromDB (serviceCall: suspend () -> Response<T>, processResponse: (Response<T>) -> Unit) {
+    fun <T> getDataFromDB(serviceCall: suspend () -> Response<T>, processResponse: (Response<T>) -> Unit) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val response: Response<T> = serviceCall()
-                if (response.isSuccessful) {
-                    withContext(Dispatchers.Main) {
+                withContext(Dispatchers.Main) {
+                    if (response.isSuccessful) {
                         processResponse(response)
-                        // Handle successful login (e.g., navigate to next activity)
                         Log.d("Response", "Datos recibidos correctamente")
+                    } else {
+                        Log.d("Response", "Error en la respuesta: ${response.code()}")
                     }
-                } else {
-                    // Handle error in login response (e.g., show error message)
-                    Log.d("Response", "Error en la respuesta: ${response.code()}")
                 }
             } catch (e: Exception) {
-                // Handle network or other exceptions
-                Log.d("Response", "Error de red o excepcion: ${e.message}")
+                withContext(Dispatchers.Main) {
+                    Log.d("Response", "Error de red o excepción: ${e.message}")
+                }
             }
         }
     }
+
 
 }
