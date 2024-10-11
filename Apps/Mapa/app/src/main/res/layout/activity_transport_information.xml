@@ -7,11 +7,23 @@
     android:layout_height="match_parent"
     tools:context=".TransportInformationActivity">
 
-    <RelativeLayout
+    <LinearLayout
         android:id="@+id/linearLayout"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:orientation="vertical"
         android:padding="10dp">
+
+        <TextView
+            android:id="@+id/btn_logout"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:clickable="true"
+            android:fontFamily="@font/poppins"
+            android:text="Cerrar sesión"
+            android:textColor="#6ABDA6"
+            android:autoSizeMinTextSize="16sp"
+            android:autoSizeStepGranularity="6sp"/>
 
         <TextView
             android:id="@+id/title_transport"
@@ -37,7 +49,7 @@
                 android:fontFamily="@font/poppins_bold"
                 android:textAlignment="center"
                 android:text=""
-                android:textSize="20sp" />
+                android:textSize="22sp" />
 
             <TextView
                 android:id="@+id/textView3"
@@ -55,23 +67,29 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="5dp"
                 android:fontFamily="@font/poppins"
+                android:text=""
                 android:textAlignment="center"
                 android:textColor="@color/white"
-                android:text=""
                 android:textSize="16sp" />
+
+            <Spinner
+                android:id="@+id/spinner_options"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content" />
 
             <Button
                 android:id="@+id/btn_start"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="5dp"
+                android:layout_marginTop="15dp"
                 android:backgroundTint="#6ABDA6"
                 android:fontFamily="@font/poppins_bold"
                 android:text="Iniciar recorrido"
+                android:enabled="false"
                 android:textSize="14sp" />
 
         </LinearLayout>
-    </RelativeLayout>
+    </LinearLayout>
 
 
 </androidx.constraintlayout.widget.ConstraintLayout>

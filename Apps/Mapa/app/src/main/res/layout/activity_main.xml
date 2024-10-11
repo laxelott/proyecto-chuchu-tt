@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="utf-8"?>
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:fitsSystemWindows="true"
     tools:context=".MainActivity">
 
     <LinearLayout
@@ -27,8 +27,7 @@
             <ImageView
                 android:layout_width="70dp"
                 android:layout_height="70dp"
-                android:src="@drawable/escom"
-                />
+                android:src="@drawable/escom" />
 
             <TextView
                 android:layout_width="wrap_content"
@@ -42,19 +41,17 @@
             <ImageView
                 android:layout_width="70dp"
                 android:layout_height="70dp"
-                android:src="@drawable/ipn"
-                />
-
+                android:src="@drawable/ipn" />
         </LinearLayout>
 
         <TextView
             android:id="@+id/greeting"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
             android:fontFamily="@font/poppins_bold"
             android:gravity="center"
             android:text="@string/TT"
-            android:layout_marginTop="10dp"
             android:textSize="18sp" />
 
         <TextView
@@ -62,25 +59,15 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:fontFamily="@font/poppins_bold"
-            android:text="Trabajo Terminal 2024-B190"
             android:gravity="center"
+            android:text="Trabajo Terminal 2024-B190"
             android:textSize="18sp" />
-
-<!--        <TextView-->
-<!--            android:id="@+id/login"-->
-<!--            android:layout_width="match_parent"-->
-<!--            android:layout_height="wrap_content"-->
-<!--            android:fontFamily="@font/poppins_bold"-->
-<!--            android:text="Iniciar sesión"-->
-<!--            android:textSize="18sp" />-->
 
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="0dip"
-            android:layout_weight="1"
+            android:layout_height="match_parent"
             android:gravity="center|bottom"
             android:orientation="vertical">
-
 
             <EditText
                 android:id="@+id/user_name"
@@ -89,7 +76,6 @@
                 android:background="#33273431"
                 android:drawableStart="@drawable/ic_user"
                 android:drawablePadding="16dp"
-                android:ems="10"
                 android:fontFamily="@font/poppins"
                 android:hint="Usuario"
                 android:inputType="text"
@@ -104,7 +90,6 @@
                 android:background="#33273431"
                 android:drawableStart="@drawable/ic_password"
                 android:drawablePadding="16dp"
-                android:ems="10"
                 android:fontFamily="@font/poppins"
                 android:hint="Contraseña"
                 android:inputType="textPassword"
@@ -115,7 +100,7 @@
                 android:id="@+id/btn_login"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="55dp"
+                android:layout_marginTop="10dp"
                 android:backgroundTint="#6ABDA6"
                 android:fontFamily="@font/poppins_bold"
                 android:text="Iniciar sesión"
@@ -124,7 +109,7 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="61dp"
+                android:layout_marginTop="30dp"
                 android:gravity="center"
                 android:orientation="horizontal">
 
@@ -145,15 +130,12 @@
                     android:id="@+id/recovery_password_text"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:clickable="true"
                     android:fontFamily="@font/poppins_bold"
                     android:text="Click aquí"
-                    android:clickable="true"
-                    android:textSize="11sp" />
+                    android:textSize="12sp" />
             </LinearLayout>
 
         </LinearLayout>
-
-
     </LinearLayout>
-
 </androidx.constraintlayout.widget.ConstraintLayout>
