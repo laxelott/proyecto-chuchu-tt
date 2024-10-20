@@ -23,9 +23,33 @@ html(lang='en')
     section
       article
         h1 Bienvenido, Administrador
-        form(method='post', action='/api/auth/loginadmin')
+        //-form(method='post', action='/api/auth/loginadmin')
+        form#adminLoginForm
           label(for='username') Nombre de usuario
           input#username(type='text', name='username', placeholder='Ingresa tu nombre de usuario')
           label(for='password') Contraseña
           input#password(type='password', name='password', placeholder='Ingresa tu contraseña')
           button(type='submit') Iniciar sesión
+    
+    script(src='https://code.jquery.com/jquery-3.6.0.min.js')
+    script.
+      $(document).ready(function() {
+        $('#adminLoginForm').submit(function(e) {
+          e.preventDefault();
+          
+          const username = $('#username').val();
+          const password = $('#password').val();
+
+          $.post('/api/auth/loginadmin', { username, password }, function(response) {
+            if (response.token) {
+              // Almacenar el token en localStorage
+              localStorage.setItem('adminToken', response.token);
+              
+              // Redireccionar al panel de administrador
+              // window.location.href = '/admin_view';
+            } else {
+              alert("Error en la autenticación");
+            }
+          });
+        });
+      });

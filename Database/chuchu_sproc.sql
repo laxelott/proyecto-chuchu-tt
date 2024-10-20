@@ -661,4 +661,100 @@ BEGIN
     END IF;
 END$$
 
+-- -----------------------------------------------------------------------------
+  -- loginAdmin
+-- -----------------------------------------------------------------------------
+DROP PROCEDURE IF EXISTS loginAdmin$$
+CREATE PROCEDURE loginAdmin(
+    `pUsername` varchar(100),
+    `pPassword` varchar(255)
+)
+BEGIN
+
+    DECLARE `login` int;
+    DECLARE `newToken` varchar(40);
+    CALL generateAdminToken(newToken);
+
+    IF (SELECT token FROM Admin d WHERE d.username = pUsername) IS NOT NULL THEN
+        SELECT 2 INTO login;
+    ELSE
+        SELECT count(*) AS auth FROM Admin d
+            WHERE d.username = pUsername
+            AND d.password = pPassword
+            INTO login;
+        
+        UPDATE Admin d
+            SET d.token = newToken
+            WHERE d.username = pUsername;
+
+    END IF;
+   
+    IF login = 1 THEN
+        SELECT login, newToken as token;
+    ELSE
+        SELECT login;
+    END IF;
+
+END$$
+
+-- -----------------------------------------------------------------------------
+  -- findAdminSalt
+-- -----------------------------------------------------------------------------
+DROP PROCEDURE IF EXISTS findAdminSalt$$
+CREATE PROCEDURE findAdminSalt(
+    `pUsername` varchar(50)
+)
+BEGIN
+
+    IF (SELECT COUNT(*) FROM Admin d WHERE d.username = pUsername) > 0 THEN
+        SELECT d.salt as `salt` FROM Admin d WHERE d.username = pUsername;
+    ELSE 
+        SELECT 'not-found' as `salt`;
+    END IF;
+
+END$$
+
+-- -----------------------------------------------------------------------------
+  -- generateAdminToke
+-- -----------------------------------------------------------------------------
+DROP PROCEDURE IF EXISTS generateAdminToken$$
+CREATE PROCEDURE generateAdminToken(
+    OUT tokenOut varchar(35)
+)
+BEGIN
+
+    DECLARE `newToken` varchar(35);
+    
+    SET newToken = MD5(RAND());
+    WHILE (
+        (SELECT COUNT(*) FROM Admin d WHERE d.token = newToken)
+    ) > 0 DO
+        SET newToken = MD5(RAND());
+    END WHILE;
+
+    SELECT newToken INTO tokenOut;
+
+END$$
+
+-- -----------------------------------------------------------------------------
+  -- logoutAdmin
+-- -----------------------------------------------------------------------------
+DROP PROCEDURE IF EXISTS logoutAdmin$$
+CREATE PROCEDURE logoutAdmin(
+    `pToken` varchar(40)
+)
+BEGIN
+
+    IF (SELECT COUNT(*) FROM Admin d WHERE d.token = pToken) > 0 THEN
+        UPDATE Driver d SET
+            d.token = NULL WHERE d.token = pToken;
+
+        SELECT 1 AS logout;
+    ELSE
+        SELECT 0 AS logout;
+    END IF;
+
+END$$
+
+
 DELIMITER ;

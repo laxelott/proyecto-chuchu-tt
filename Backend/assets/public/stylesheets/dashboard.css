@@ -1,60 +1,150 @@
 @import url("base.css");
 @import url("navbar.css");
 
-.dashboard {
+/*.dashboard {
   padding: 2rem;
 }
 
-h1 {
-  font-size: 4.4rem;
-  margin-bottom: 2rem;
-  color: var(--principal-green);
-}
+*/
 
-.content {
+body {
   display: flex;
   flex-direction: column;
-  gap: 3rem;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+
+  h2 {
+    font-size: 4.4rem;
+    margin-bottom: 2rem;
+    color: var(--principal-green);
+  }
 }
 
-.cards {
-  display: flex;
-  gap: 2rem;
+header, footer {
+  width: 100%;
 }
 
-.card {
-  background-color: var(--soft-blue);
-  padding: 2rem;
-  border-radius: 1rem;
-  width: 30%;
+
+
+/* Sidebar no ocultando el navbar */
+aside.sidebar {
+  position: fixed;
+  top: 60px; /* Dejar espacio para el navbar */
+  left: 0;
+  height: calc(100% - 60px); /* Altura del sidebar excluyendo el navbar */
+  width: 220px;
+  background-color: var(--footer); /* Fondo gris oscuro */
+  padding-top: 2rem;
   display: flex;
   flex-direction: column;
   align-items: center;
-  h3 {
-    font-size: 2.2rem;
-    color: var(--icon-text);
-  }
-  span {
-    font-size: 3.2rem;
-    font-weight: bold;
-    color: var(--black);
-  }
+  gap: 1.5rem;
 }
 
-.actions {
-  ul {
-    list-style: none;
-    display: flex;
-    gap: 2rem;
-    li {
-      a {
-        background-color: var(--principal-green);
-        color: white;
-        padding: 1rem 2rem;
-        border-radius: 1rem;
-        text-decoration: none;
-        font-size: 1.8rem;
-      }
-    }
-  }
+aside.sidebar ul {
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+  width: 100%;
+}
+
+aside.sidebar ul li {
+  width: 100%;
+  padding: 10px 20px;
+  color: white;
+  font-size: 1.2rem; /* Tamaño de texto más pequeño */
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+aside.sidebar ul li:hover {
+  background-color: var(--principal-green); /* Color al pasar el mouse */
+}
+
+aside.sidebar ul li.active {
+  background-color: #444; /* Color para la opción seleccionada */
+}
+
+/* Ajuste del contenido principal para no superponerse con el sidebar */
+main.content {
+  margin-left: 240px; /* Espacio para el sidebar */
+  padding: 2rem;
+  flex: 1; /* Esto permite que el contenido se expanda y empuje el footer hacia abajo */
+}
+
+/* Estilos para tablas y formularios */
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+table th, table td {
+  padding: 10px;
+  text-align: left;
+  border-bottom: 1px solid #ddd;
+}
+
+table th {
+  background-color: #f4f4f4;
+}
+
+button {
+  padding: 6px 12px;
+  background-color: #333;
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: #575757;
+}
+
+form {
+  margin-top: 1rem;
+}
+
+form input, form button {
+  margin: 5px 0;
+  padding: 8px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Footer fijo en la parte inferior */
+footer {
+  background-color: var(--footer);
+  width: 100%;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  flex-direction: row;
+  height: 80px;
+  color: white;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  padding: 1rem 0;
+  z-index: 999; /* Para asegurarse de que esté siempre visible */
+}
+
+footer .logo, footer .school {
+  display: flex;
+  align-items: center;
+}
+
+footer .logo img {
+  width: 2rem;
+  margin-right: 10px;
+}
+
+footer .school {
+  flex-direction: column;
+  text-align: center;
+}
+
+footer .school h1 {
+  font-size: 1.4rem;
 }
