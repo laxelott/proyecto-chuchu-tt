@@ -5,18 +5,17 @@ import android.os.Bundle
 import android.widget.LinearLayout
 import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.DialogFragment
+import kotlinx.coroutines.Job
 
-class EndTravelDialogFragment : DialogFragment() {
+class EndTravelDialogFragment(private val sendingDataJob: Job?, private val gettingIncidentsJob: Job?) : DialogFragment() {
 
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         val builder = AlertDialog.Builder(requireActivity())
 
-        // Inflate the custom layout for the dialog
         val inflater = requireActivity().layoutInflater
         val view = inflater.inflate(R.layout.dialog_end_travel, null)
         builder.setView(view)
 
-        // Get all buttons
         val btnUnitFailure: LinearLayout = view.findViewById(R.id.btn_unit_failure)
         val btnClimaticEvent: LinearLayout = view.findViewById(R.id.btn_climatic_event)
         val btnTrafficEvent: LinearLayout = view.findViewById(R.id.btn_traffic_accident)
@@ -39,10 +38,8 @@ class EndTravelDialogFragment : DialogFragment() {
             endTravel()
         }
 
-        // Add action buttons if needed
         builder.setView(view)
             .setNegativeButton("Cancelar") { dialog, _ ->
-                // Close the dialog without ending the travel
                 dialog.dismiss()
             }
 
@@ -50,8 +47,13 @@ class EndTravelDialogFragment : DialogFragment() {
     }
 
     private fun endTravel() {
-        // Logic to end the travel and close the dialog
+        stopSendingDataPeriodically()
         dismiss()
-        requireActivity().finish()  // Or other logic to end the travel
+        requireActivity().finish()
+    }
+
+    private fun stopSendingDataPeriodically() {
+        sendingDataJob?.cancel()
+        gettingIncidentsJob?.cancel()
     }
 }

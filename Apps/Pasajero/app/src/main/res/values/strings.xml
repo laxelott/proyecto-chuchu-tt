@@ -3,4 +3,6 @@
     <string name="title_activity_maps">MapsActivity</string>
     <string name="api_key">AIzaSyBO2nyaIn_4xCfJ6_Wj6ycIPX43h8EjIP4</string>
     <string name="TT">Prototipo de sistema móvil que permite monitorear en tiempo real el transporte público</string>
+    <string name="welcome">Bienvenid@!</string>
+    <string name="selectT">Selecciona un transporte para continuar</string>
 </resources>

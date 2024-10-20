@@ -11,131 +11,206 @@
         android:id="@+id/linearLayout"
         android:layout_width="0dp"
         android:layout_height="0dp"
+        android:background="@drawable/gradient_background"
         android:orientation="vertical"
-        android:padding="8dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
 
-        <LinearLayout
+        <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:gravity="center"
-            android:orientation="horizontal">
+            android:background="@drawable/normal_shape">
 
             <ImageView
-                android:layout_width="70dp"
-                android:layout_height="70dp"
+                android:id="@+id/background_escom"
+                android:layout_width="match_parent"
+                android:layout_height="130dp"
+                android:scaleType="centerCrop"
                 android:src="@drawable/escom" />
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginHorizontal="8dp"
-                android:fontFamily="@font/poppins_bold"
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="130dp"
+                android:background="#80000000" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
                 android:gravity="center"
-                android:text="Instituto Politécnico \nNacional"
-                android:textSize="20sp" />
+                android:orientation="horizontal"
+                android:paddingVertical="30dp">
 
-            <ImageView
-                android:layout_width="70dp"
-                android:layout_height="70dp"
-                android:src="@drawable/ipn" />
-        </LinearLayout>
+                <ImageView
+                    android:layout_width="70dp"
+                    android:layout_height="70dp"
+                    android:src="@drawable/imagen_escom" />
 
-        <TextView
-            android:id="@+id/greeting"
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginHorizontal="8dp"
+                    android:fontFamily="@font/poppins_bold"
+                    android:gravity="center"
+                    android:text="Instituto Politécnico \nNacional"
+                    android:textColor="@color/warmbeige"
+                    android:textSize="20sp" />
+
+                <ImageView
+                    android:layout_width="70dp"
+                    android:layout_height="70dp"
+                    android:src="@drawable/ipn" />
+
+            </LinearLayout>
+        </FrameLayout>
+
+        <View
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:fontFamily="@font/poppins_bold"
-            android:gravity="center"
-            android:text="@string/TT"
-            android:textSize="18sp" />
-
-        <TextView
-            android:id="@+id/login_text"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:fontFamily="@font/poppins_bold"
-            android:gravity="center"
-            android:text="Trabajo Terminal 2024-B190"
-            android:textSize="18sp" />
+            android:layout_height="1dp"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="8dp"
+            android:background="@color/pink" />
 
         <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="10dp"
+            android:orientation="vertical"
+            android:padding="10dp">
+
+            <TextView
+                android:id="@+id/greeting"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/poppins_semibold"
+                android:gravity="center"
+                android:text="@string/TT"
+                android:textColor="@color/warmbeige"
+                android:textSize="18sp" />
+
+            <TextView
+                android:id="@+id/login_text"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/poppins_semibold"
+                android:gravity="center"
+                android:text="Trabajo Terminal 2024-B190"
+                android:textColor="@color/warmbeige"
+                android:textSize="18sp" />
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="8dp"
+            android:background="@color/pink" />
+
+        <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:gravity="center|bottom"
-            android:orientation="vertical">
-
-            <EditText
-                android:id="@+id/user_name"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:background="#33273431"
-                android:drawableStart="@drawable/ic_user"
-                android:drawablePadding="16dp"
-                android:fontFamily="@font/poppins"
-                android:hint="Usuario"
-                android:inputType="text"
-                android:paddingHorizontal="16dp"
-                android:paddingVertical="16dp" />
-
-            <EditText
-                android:id="@+id/user_password"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:background="#33273431"
-                android:drawableStart="@drawable/ic_password"
-                android:drawablePadding="16dp"
-                android:fontFamily="@font/poppins"
-                android:hint="Contraseña"
-                android:inputType="textPassword"
-                android:paddingHorizontal="16dp"
-                android:paddingVertical="16dp" />
-
-            <Button
-                android:id="@+id/btn_login"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:backgroundTint="#6ABDA6"
-                android:fontFamily="@font/poppins_bold"
-                android:text="Iniciar sesión"
-                android:textSize="14sp" />
+            android:layout_margin="10dp"
+            android:background="@drawable/normal_shape">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="30dp"
-                android:gravity="center"
-                android:orientation="horizontal">
+                android:gravity="left"
+                android:padding="10dp"
+                android:orientation="vertical">
 
                 <TextView
-                    android:id="@+id/textView"
+                    android:id="@+id/select_transport"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:fontFamily="@font/poppins"
-                    android:text="¿Olvidaste tu contraseña?"
-                    android:textAlignment="center"
-                    android:textSize="11sp" />
-
-                <Space
-                    android:layout_width="2sp"
-                    android:layout_height="match_parent" />
-
-                <TextView
-                    android:id="@+id/recovery_password_text"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:clickable="true"
-                    android:fontFamily="@font/poppins_bold"
-                    android:text="Click aquí"
-                    android:textSize="12sp" />
+                    android:fontFamily="@font/poppins_semibold"
+                    android:text="@string/iniciar_sesion"
+                    android:textColor="@color/warmbeige"
+                    android:textSize="18sp" />
             </LinearLayout>
 
-        </LinearLayout>
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:padding="10dp"
+                android:orientation="vertical">
+
+                <EditText
+                    android:id="@+id/user_name"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/shape"
+                    android:drawableStart="@drawable/ic_user"
+                    android:drawablePadding="16dp"
+                    android:fontFamily="@font/poppins"
+                    android:hint="Usuario"
+                    android:inputType="text"
+                    android:paddingHorizontal="16dp"
+                    android:paddingVertical="16dp"
+                    android:textColor="@color/white"
+                    android:textColorHint="@color/white" />
+
+                <EditText
+                    android:id="@+id/user_password"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/shape"
+                    android:drawableStart="@drawable/ic_password"
+                    android:drawablePadding="16dp"
+                    android:fontFamily="@font/poppins"
+                    android:hint="Contraseña"
+                    android:inputType="textPassword"
+                    android:paddingHorizontal="16dp"
+                    android:paddingVertical="16dp"
+                    android:textColor="@color/white"
+                    android:textColorHint="@color/white" />
+
+                <Button
+                    android:id="@+id/btn_login"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:backgroundTint="@color/pink"
+                    android:textColor="@color/strong"
+                    android:fontFamily="@font/poppins_bold"
+                    android:text="Iniciar sesión"
+                    android:textSize="14sp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="30dp"
+                    android:gravity="center"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/textView"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="@font/poppins"
+                        android:textColor="@color/warmbeige"
+                        android:text="¿Olvidaste tu contraseña?"
+                        android:textAlignment="center"
+                        android:textSize="11sp" />
+
+                    <Space
+                        android:layout_width="2sp"
+                        android:layout_height="match_parent" />
+
+                    <TextView
+                        android:id="@+id/recovery_password_text"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:clickable="true"
+                        android:textColor="@color/warmbeige"
+                        android:fontFamily="@font/poppins_bold"
+                        android:text="Click aquí"
+                        android:textSize="12sp" />
+                </LinearLayout>
+            </LinearLayout>
+        </FrameLayout>
     </LinearLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>

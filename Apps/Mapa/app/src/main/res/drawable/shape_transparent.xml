@@ -1,0 +1,12 @@
+<!-- res/drawable/image_border.xml -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@android:color/transparent"/> <!-- Color de fondo -->
+            <stroke
+                android:width="4dp"
+                android:color="@color/warmbeige" /> <!-- Color del borde -->
+            <corners android:radius="8dp"/> <!-- Radio de las esquinas -->
+        </shape>
+    </item>
+</layer-list>

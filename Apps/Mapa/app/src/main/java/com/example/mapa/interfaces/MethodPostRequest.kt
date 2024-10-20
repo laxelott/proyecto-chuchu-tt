@@ -3,6 +3,8 @@ package com.example.mapa.interfaces
 
 import com.example.mapa.BusStop
 import com.example.mapa.DriverInfo
+import com.example.mapa.GenericResponse
+import com.example.mapa.IncidentList
 import com.example.mapa.TokenRequest
 import retrofit2.Response
 import retrofit2.http.Body
@@ -17,13 +19,46 @@ interface ApiService {
     * */
     @POST("driver/getInfo")
     suspend fun getVehicles(@Body token: TokenRequest): Response<List<DriverInfo>>
+
+    @POST("driver/useVehicle/{vehicleIdentifier}")
+    suspend fun postUseVehicle(
+        @Path("vehicleIdentifier") idVehicle: String,
+        @Body token: TokenRequest
+    ): Response<GenericResponse>
+
+    @POST("driver/useVehicle/")
+    suspend fun leaveVehicle(@Body token: TokenRequest): Response<GenericResponse>
+
     @POST("data/stop/list/{idRoute}")
     suspend fun getBusStopsInfo(@Path("idRoute") idRoute: Int): Response<List<BusStop>>
-    @POST("location/register/{latitude}/{longitude}")
+
+    @POST("location/reportLocation/{latitude}/{longitude}")
     suspend fun postLatitudeLongitude(
         @Path("latitude") latitude: Double,
-        @Path("longitude") longitude: Double
+        @Path("longitude") longitude: Double,
+        @Body token: TokenRequest
     ): Response<Unit>
-    @POST("data/stop/list/{idRoute}/incident")
-    suspend fun postIncident(@Path("idRoute") idRoute: Int): Response<Boolean>
+
+    @POST("incidents/list/{idRoute}")
+    suspend fun getIncidentsList(@Path("idRoute") idRoute: Int): Response<List<IncidentList>>
+
+
+    data class IncidentRequest(
+        val lat: Double,
+        val lon: Double,
+        val token: String,
+        val description: String
+    )
+    @POST("incidents/add/{incidentType}/{idRoute}")
+    suspend fun postIncident(
+        @Path("incidentType") incident: String,
+        @Path("idRoute") idRoute: Int,
+        @Body incidentRequest: IncidentRequest
+    ): Response<List<GenericResponse>>
+
+    @POST("incidents/remove/{incidentId}/{idRoute}")//No tendria que ir igual lo de la ruta?
+    suspend fun deleteIncident(
+        @Path("indicentId") incidentId: Int,
+        @Path("idRoute") idRoute: Int
+    ): Response<Boolean>
 }

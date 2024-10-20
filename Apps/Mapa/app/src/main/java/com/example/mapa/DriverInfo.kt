@@ -6,5 +6,6 @@ data class DriverInfo(
     val vehicleIdentifier: String,
     val routeName: String,
     val routeColor: String,
-    val routeIcon: String
+    val routeIcon: String,
+    val idRoute: Int
 )

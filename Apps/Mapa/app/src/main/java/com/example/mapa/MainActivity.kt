@@ -38,7 +38,6 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
         setContentView(R.layout.activity_main)
 
         sharedPreferences = getSharedPreferences("UserSession", Context.MODE_PRIVATE)
@@ -111,11 +110,12 @@ class MainActivity : AppCompatActivity() {
                 Log.d("driver info", "$response")
                 if (response.isSuccessful) {
                     val responseBody = response.body?.string()
-                    val loginSuccess = Gson().fromJson(responseBody, LoginSuccess::class.java)
+                    val listType = object : TypeToken<List<LoginSuccess>>() {}.type
+                    val loginSuccessList: List<LoginSuccess> = Gson().fromJson(responseBody, listType)
+
 
                     withContext(Dispatchers.Main) {
-                        Log.d("Token", loginSuccess.token)
-                        handleLoginResponse(loginSuccess, user)
+                        handleLoginResponse(loginSuccessList.first(), user)
                     }
                 } else {
                     withContext(Dispatchers.Main) {
@@ -155,8 +155,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun goToTransportInformationActivity() {
-        val token = sharedPreferences.getString("token", null)
-        Log.d("Token", "$token")
         val intent = Intent(this, TransportInformationActivity::class.java)
         startActivity(intent)
         finish()

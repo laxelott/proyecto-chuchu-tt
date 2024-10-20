@@ -28,7 +28,6 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:orientation="vertical"
-            android:background="@color/buscadorBackground"
             >
 
             <TextView
@@ -37,7 +36,7 @@
                 android:layout_height="wrap_content"
                 android:text="Nombre"
                 android:textSize="16dp"
-                android:textColor="#273431"
+                android:textColor="@color/white"
                 android:fontFamily="@font/poppins_semibold"
                 />
 
@@ -46,7 +45,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Descripcion"
-                android:textColor="#7A908A"
+                android:textColor="@color/white"
                 android:textSize="12dp"
                 android:fontFamily="@font/poppins"
                 />

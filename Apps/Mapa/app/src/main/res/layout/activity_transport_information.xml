@@ -9,83 +9,122 @@
 
     <LinearLayout
         android:id="@+id/linearLayout"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="@drawable/gradient_background"
         android:orientation="vertical"
-        android:padding="10dp">
+        android:padding="16dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
 
         <TextView
             android:id="@+id/btn_logout"
-            android:layout_width="wrap_content"
+            android:layout_width="130dp"
             android:layout_height="wrap_content"
+            android:background="@drawable/shape"
             android:clickable="true"
             android:fontFamily="@font/poppins"
+            android:gravity="center"
             android:text="Cerrar sesión"
-            android:textColor="#6ABDA6"
-            android:autoSizeMinTextSize="16sp"
-            android:autoSizeStepGranularity="6sp"/>
+            android:textColor="@color/white" />
 
         <TextView
             android:id="@+id/title_transport"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginVertical="10dp"
             android:fontFamily="@font/poppins_bold"
-            android:text="Transporte"
+            android:text="Transporte asignado"
+            android:textColor="@color/warmbeige"
             android:textSize="24sp" />
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:gravity="center"
-            android:layout_alignParentBottom="true"
-            android:layout_alignParentTop="true"
             android:layout_gravity="center"
+            android:gravity="center"
             android:orientation="vertical">
 
-            <TextView
-                android:id="@+id/title_transport_type"
-                android:layout_width="match_parent"
+            <androidx.cardview.widget.CardView
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:fontFamily="@font/poppins_bold"
-                android:textAlignment="center"
-                android:text=""
-                android:textSize="22sp" />
+                app:cardBackgroundColor="@android:color/transparent"
+                app:cardElevation="4dp"
+                app:cardCornerRadius="8dp">
 
-            <TextView
-                android:id="@+id/textView3"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="5dp"
-                android:fontFamily="@font/poppins"
-                android:text="Usted está asignado a la línea"
-                android:textAlignment="center"
-                android:textSize="16sp" />
+                <ImageView
+                    android:id="@+id/background_image"
+                    android:layout_width="match_parent"
+                    android:layout_height="150dp"
+                    android:scaleType="centerCrop"
+                    android:background="@drawable/shape_transparent"
+                    android:src="@drawable/building" />
 
-            <TextView
-                android:id="@+id/title_route_transport"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="5dp"
-                android:fontFamily="@font/poppins"
-                android:text=""
-                android:textAlignment="center"
-                android:textColor="@color/white"
-                android:textSize="16sp" />
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="150dp"
+                    android:background="#80000000" />
 
-            <Spinner
-                android:id="@+id/spinner_options"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content" />
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:orientation="vertical"
+                    android:padding="10dp">
+                    <TextView
+                        android:id="@+id/title_transport_type"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="@font/poppins_bold"
+                        android:text=""
+                        android:textAlignment="center"
+                        android:textColor="@color/warmbeige"
+                        android:textSize="22sp" />
+
+                    <TextView
+                        android:id="@+id/textView3"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="5dp"
+                        android:fontFamily="@font/poppins"
+                        android:text="Usted está asignado a la línea"
+                        android:textAlignment="center"
+                        android:textColor="@color/warmbeige"
+                        android:textSize="16sp" />
+
+                    <TextView
+                        android:id="@+id/title_route_transport"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="5dp"
+                        android:fontFamily="@font/poppins"
+                        android:text=""
+                        android:textAlignment="center"
+                        android:textColor="@color/white"
+                        android:textSize="16sp" />
+
+                    <Spinner
+                        android:id="@+id/spinner_options"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/warmbeige" />
+
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+
 
             <Button
                 android:id="@+id/btn_start"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="15dp"
-                android:backgroundTint="#6ABDA6"
+                android:backgroundTint="@color/pink"
+                android:enabled="false"
                 android:fontFamily="@font/poppins_bold"
                 android:text="Iniciar recorrido"
-                android:enabled="false"
+                android:textColor="@color/strong"
                 android:textSize="14sp" />
 
         </LinearLayout>

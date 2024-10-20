@@ -30,7 +30,7 @@
                 android:layout_height="wrap_content"
                 android:text="Nombre"
                 android:textSize="16dp"
-                android:textColor="#273431"
+                android:textColor="@color/white"
                 android:fontFamily="@font/poppins_semibold"
                 />
     </LinearLayout>
