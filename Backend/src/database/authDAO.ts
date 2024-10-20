@@ -85,4 +85,13 @@ export class AuthDAO {
             })
         }) 
     }
+
+    static async logoutAdmin(token: string) {
+        const results: any = await SQLPool.query(
+            "CALL logoutAdmin(?)",
+            [token]
+        );
+    
+        return results[0];
+    }
 }

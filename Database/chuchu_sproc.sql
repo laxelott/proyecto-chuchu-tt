@@ -736,4 +736,25 @@ BEGIN
 
 END$$
 
+-- -----------------------------------------------------------------------------
+  -- logoutAdmin
+-- -----------------------------------------------------------------------------
+DROP PROCEDURE IF EXISTS logoutAdmin$$
+CREATE PROCEDURE logoutAdmin(
+    `pToken` varchar(40)
+)
+BEGIN
+
+    IF (SELECT COUNT(*) FROM Admin d WHERE d.token = pToken) > 0 THEN
+        UPDATE Driver d SET
+            d.token = NULL WHERE d.token = pToken;
+
+        SELECT 1 AS logout;
+    ELSE
+        SELECT 0 AS logout;
+    END IF;
+
+END$$
+
+
 DELIMITER ;

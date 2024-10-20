@@ -49,5 +49,13 @@ router.post('/loginadmin', function(req, res, next) {
         });
 });
 
+router.post('/logoutadmin', function(req, res, next) {
+    let token = req.body.token;
+
+    AuthDAO.logoutAdmin(token)
+        .then((result) => {res.send(result)})
+        .catch((err) => {res.send("ERROR: " + err)});
+});
+
 
 export default router;
