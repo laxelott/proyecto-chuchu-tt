@@ -38,3 +38,4 @@ google-services.json
 /Backend/deploy.bat
 /Backend/package-lock.json
 /Backend/*.env
+/Database/chuchu.sql
