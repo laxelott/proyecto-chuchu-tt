@@ -191,14 +191,81 @@ BEGIN
         v.identifier AS 'vehicleIdentifier',
         CONCAT(r.name, ' - ', r.description) AS 'routeName',
         r.color AS 'routeColor',
-        r.iconB64 AS 'routeIcon'
+        r.iconB64 AS 'routeIcon',
+        r.idRoute AS 'idRoute'
     FROM Driver d
         INNER JOIN Driver_Vehicle dv ON d.idDriver = d.idDriver
         INNER JOIN Vehicle v ON dv.idVehicle = v.idVehicle
         INNER JOIN Vehicle_Route vr ON v.idVehicle = vr.idVehicle
         INNER JOIN Route r ON vr.idRoute = r.idRoute
         INNER JOIN Transport t ON r.idTransport = t.idTransport
-    WHERE d.token = pToken;
+    WHERE d.token = pToken
+        AND v.driverToken IS NULL;
+
+END$$
+
+-- -----------------------------------------------------------------------------
+  -- useVehicle
+-- -----------------------------------------------------------------------------
+DROP PROCEDURE IF EXISTS useVehicle$$
+CREATE PROCEDURE useVehicle(
+    `pVehicleIdentifier` varchar(255),
+    `pToken` varchar(40)
+)
+BEGIN
+
+    IF (SELECT COUNT(*) FROM Vehicle WHERE identifier = pVehicleIdentifier AND driverToken = pToken) > 0 THEN
+        SELECT 2 as error, 'vehicle-in-use' as message;
+    ELSE
+        UPDATE Vehicle
+            SET driverToken = pToken
+            WHERE identifier = pVehicleIdentifier;
+        
+        SELECT 0 as error;
+    END IF;
+
+END$$
+
+-- -----------------------------------------------------------------------------
+  -- useVehicle
+-- -----------------------------------------------------------------------------
+DROP PROCEDURE IF EXISTS useVehicle$$
+CREATE PROCEDURE useVehicle(
+    `pToken` varchar(40)
+)
+BEGIN
+
+    IF (SELECT COUNT(*) FROM Vehicle WHERE driverToken = pToken) = 0 THEN
+        SELECT 1 as error, 'vehicle-available' as message;
+    ELSE
+        UPDATE Vehicle
+            SET driverToken = NULL
+            WHERE driverToken = pToken;
+        
+        SELECT 0 as error;
+    END IF;
+
+END$$
+
+-- -----------------------------------------------------------------------------
+  -- getIncidents
+-- -----------------------------------------------------------------------------
+DROP PROCEDURE IF EXISTS getIncidents$$
+CREATE PROCEDURE getIncidents(
+    `pIdRoute` int
+)
+BEGIN
+
+    SELECT
+        it.idIncidentType AS incidentType,
+        it.name AS incidentName,
+        i.description,
+        i.coordX AS lon,
+        i.coordY AS lat
+    FROM Incident i
+        INNER JOIN Incident_IncidentType iit ON i.idIncident = iit.idIncident
+        INNER JOIN IncidentType it ON iit.idIncidentType = it.idIncidentType
+    WHERE i.idRoute = pIdRoute;
 
 END$$
 
@@ -243,23 +310,8 @@ BEGIN
             SELECT 2 AS error, 'invalid-token' AS message;
         END IF;
     ELSE
-        SELECT 1 AS error, 'type-not-found' AS message;
+        SELECT 1 AS error, 'invalid-type' AS message;
     END IF;
-
-    SELECT DISTINCT
-    	d.name,
-        t.name as 'transportName',
-        v.identifier AS 'vehicleIdentifier',
-        CONCAT(r.name, ' - ', r.description) AS 'routeName',
-        r.color AS 'routeColor',
-        r.iconB64 AS 'routeIcon'
-    FROM Driver d
-        INNER JOIN Driver_Vehicle dv ON d.idDriver = d.idDriver
-        INNER JOIN Vehicle v ON dv.idVehicle = v.idVehicle
-        INNER JOIN Vehicle_Route vr ON v.idVehicle = vr.idVehicle
-        INNER JOIN Route r ON vr.idRoute = r.idRoute
-        INNER JOIN Transport t ON r.idTransport = t.idTransport
-    WHERE d.token = pToken;
 
 END$$
 
@@ -276,12 +328,12 @@ BEGIN
     IF (SELECT COUNT(*) FROM Incident i WHERE i.idIncident = pIdIncident) > 0 THEN
         IF (SELECT COUNT(*) FROM Driver d WHERE d.token = pToken) > 0 THEN
 
-            DELETE FROM Driver_Incident di
-                WHERE di.idIncident = pIdIncident;
-            DELETE FROM Incident_IncidentType iit
-                WHERE iit.idIncident = pIdIncident;
-            DELETE FROM Incident i
-                WHERE i.idIncident = pIdIncident;
+            DELETE FROM Driver_Incident
+                WHERE idIncident = pIdIncident;
+            DELETE FROM Incident_IncidentType
+                WHERE idIncident = pIdIncident;
+            DELETE FROM Incident
+                WHERE idIncident = pIdIncident;
 
             SELECT 0 AS error;
         ELSE 
@@ -329,15 +381,15 @@ END$$
 DROP PROCEDURE IF EXISTS reportLocation$$
 CREATE PROCEDURE reportLocation(
     `pLat` double,
-    `pLong` double,
+    `pLon` double,
     `pToken` varchar(40)
 )
 BEGIN
 
     DECLARE vIdVehicle int;
 
-    IF (SELECT COUNT(*) FROM Vehicle v WHERE v.token = pToken) > 0 THEN
-        SET vIdVehicle = (SELECT idVehicle FROM Vehicle v WHERE v.token = pToken);
+    IF (SELECT COUNT(*) FROM Vehicle v WHERE v.driverToken = pToken) > 0 THEN
+        SET vIdVehicle = (SELECT idVehicle FROM Vehicle v WHERE v.driverToken = pToken);
 
         IF (SELECT COUNT(*) FROM Last_Location ll WHERE ll.idVehicle = vIdVehicle) = 0 THEN
             INSERT INTO Last_Location(idVehicle, coordX, coordY) VALUES
@@ -370,7 +422,7 @@ BEGIN
         ll.coordY as lat
     FROM Vehicle v
         INNER JOIN Last_Location ll ON v.idVehicle = ll.idVehicle
-        INNER JOIN VehicleRoute vr ON v.idVehicle = vr.idVehicle
+        INNER JOIN Vehicle_Route vr ON v.idVehicle = vr.idVehicle
         WHERE vr.idRoute = pIdRoute;
 
 END$$
@@ -384,9 +436,13 @@ CREATE PROCEDURE setDriverInactive(
 )
 BEGIN
 
-    IF (SELECT COUNT(*) FROM Vehicle v WHERE v.token = pToken) > 0 THEN
+    IF (SELECT COUNT(*) FROM Vehicle v WHERE v.driverToken = pToken) > 0 THEN
+        DELETE FROM Last_Location
+            WHERE idVehicle = (
+                SELECT idVehicle FROM Vehicle WHERE driverToken = pToken
+            );
         UPDATE Vehicle SET
-            token = NULL WHERE token = pToken;
+            driverToken = NULL WHERE driverToken = pToken;
         UPDATE Driver SET
             active = 0 WHERE token = pToken;
         SELECT 0 AS error;

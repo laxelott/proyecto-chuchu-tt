@@ -23,6 +23,7 @@ CREATE TABLE `Admin`(
     `username` varchar(255) NOT NULL UNIQUE,
     `password` varchar(100) NOT NULL,
     `salt` varchar(40) NOT NULL UNIQUE,
+    `token` varchar(40) UNIQUE,
     CONSTRAINT `PK_Admin` PRIMARY KEY (`idAdmin` ASC)
 );
 
