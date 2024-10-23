@@ -3,7 +3,7 @@ import { IncidentsDAO } from '../database/incidentsDAO.js';
 
 const router  = Router();
 
-router.post('/incident/list/:routeId', function(req, res, next) {
+router.post('/list/:routeId', function(req, res, next) {
     let routeId:Number = Number.parseInt(req.params.routeId);
 
     IncidentsDAO.getIncidents(routeId)
@@ -11,7 +11,7 @@ router.post('/incident/list/:routeId', function(req, res, next) {
         .catch((err) => {res.send("ERROR: " + err)});
 })
 
-router.post('/incident/add/:incidentType/:routeId', function(req, res, next) {
+router.post('/add/:incidentType/:routeId', function(req, res, next) {
     let incidentType:Number = Number.parseInt(req.params.incidentType);
     let rotueId:Number = Number.parseInt(req.params.routeId);
     let description: string = req.body.description;
@@ -25,7 +25,7 @@ router.post('/incident/add/:incidentType/:routeId', function(req, res, next) {
         .catch((err) => {res.send("ERROR: " + err)});
 })
 
-router.post('/incident/remove/:incidentId', function(req, res, next) {
+router.post('/remove/:incidentId', function(req, res, next) {
     let incidentId:Number = Number.parseInt(req.params.incidentId);
     let token: string = req.body.token;
 

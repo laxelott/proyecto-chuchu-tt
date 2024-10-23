@@ -25,7 +25,7 @@ export class AuthDAO {
                 [username, saltedKey]
             );
 
-            return results[0];
+            return results;
         }
     }
 
@@ -45,7 +45,7 @@ export class AuthDAO {
                 [username, saltedKey]
             );
 
-            return results[0];
+            return results;
         }
     }
 
@@ -56,7 +56,12 @@ export class AuthDAO {
             [token]
         );
 
-        return results[0];
+        await SQLPool.query(
+            "CALL setDriverInactive(?)",
+            [token]
+        )
+
+        return results;
     }
 
     static async getHashedPassword(username: string, password: string) {

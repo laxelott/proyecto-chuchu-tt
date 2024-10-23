@@ -10,4 +10,22 @@ export class DriverDAO {
 
         return results;
     }
+    
+    static async useVehicle(vehicleIdentifier: string, token: any) {
+        const results: any = (await SQLPool.query(
+            "CALL useVehicle(?,?)",
+            [vehicleIdentifier, token]
+        ));
+
+        return results[0];
+    }
+
+    static async leaveVehicle(token: any) {
+        const results: any = (await SQLPool.query(
+            "CALL leaveVehicle(?)",
+            [token]
+        ));
+
+        return results[0];
+    }
 }
