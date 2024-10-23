@@ -7,19 +7,24 @@ import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.DialogFragment
+import com.example.mapa.interfaces.ApiService
 import com.example.pasajero.interfaces.ApiHelper
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 
-class ReportIncidentDialogFragment : DialogFragment() {
+class ReportIncidentDialogFragment(private val routeID: Int, private val lat: Double, private val lon: Double, private val token: String) : DialogFragment() {
 
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         val builder = AlertDialog.Builder(requireActivity())
 
-        // Inflate the custom layout for the dialog
         val inflater = requireActivity().layoutInflater
         val view = inflater.inflate(R.layout.dialog_report_incident, null)
         builder.setView(view)
 
-        // Get all buttons
         val btnVehicularCrash: LinearLayout = view.findViewById(R.id.btn_vehicular_crash)
         val btnTraffic: LinearLayout = view.findViewById(R.id.btn_traffic)
         val btnBottleneck: LinearLayout = view.findViewById(R.id.btn_bottleneck)
@@ -28,22 +33,22 @@ class ReportIncidentDialogFragment : DialogFragment() {
         val btnOther: LinearLayout = view.findViewById(R.id.btn_other)
 
         btnVehicularCrash.setOnClickListener {
-            sendReportIncident("Choque")
+            sendReportIncident("0")
         }
         btnTraffic.setOnClickListener {
-            sendReportIncident("Trafico")
+            sendReportIncident("1")
         }
         btnBottleneck.setOnClickListener {
-            sendReportIncident("Embotellamiento")
+            sendReportIncident("2")
         }
         btnRoadClosed.setOnClickListener {
-            sendReportIncident("Cerrado")
+            sendReportIncident("3")
         }
         btnManifestation.setOnClickListener {
-            sendReportIncident("Manifestacion")
+            sendReportIncident("4")
         }
         btnOther.setOnClickListener {
-            sendReportIncident("Otro")
+            sendReportIncident("5")
         }
 
         builder.setView(view)
@@ -55,22 +60,52 @@ class ReportIncidentDialogFragment : DialogFragment() {
     }
 
     private fun sendReportIncident(type: String) {
-        Toast.makeText(requireContext(), "Incidencia reportada: $type", Toast.LENGTH_SHORT).show()
-        //callApi()
-        dismiss()
+        callApi(type)
     }
 
-    private fun callApi() {
+    private fun callApi(type: String) {
+        val incidentRequest = ApiService.IncidentRequest(lat, lon, token, "")
         val service = ApiHelper().prepareApi()
+
         ApiHelper().getDataFromDB(
-            serviceCall = { service.postIncident(60001) }, // Pasamos la función que hace la solicitud
+            serviceCall = { service.postIncident(type, routeID, incidentRequest) },
             processResponse = { response ->
-                val incidentReported = response.body()
-                if (incidentReported != null) {
-                    Log.d("Transport response", "Se reporto la incidencia: $incidentReported")
-//                    AQUI DEBE DE IR EL TOAST
+                CoroutineScope(Dispatchers.Main).launch { // Cambiar a hilo principal
+                    if (response.isSuccessful && response.body() != null) {
+                        // Asumimos que la respuesta es un arreglo JSON.
+                        val listType = object : TypeToken<List<GenericResponse>>() {}.type
+
+                        // Convertir el cuerpo de la respuesta directamente.
+                        val incidentReported: List<GenericResponse> = Gson().fromJson(
+                            Gson().toJson(response.body()),
+                            listType
+                        )
+
+                        Log.d("Transport response", "Se reportó la incidencia: $incidentReported")
+
+                        // Procesar la respuesta basada en el primer elemento.
+                        when (incidentReported.first().error) {
+                            0 -> showToast("Incidente reportado: $type")
+                            1 -> showToast("Tipo de incidente inválido: $type")
+                            2 -> showToast("Token inválida")
+                            else -> showToast("Error desconocido")
+                        }
+                    } else {
+                        showToast("Error en la respuesta: ${response.code()}")
+                    }
+                    dismiss() // Mover dismiss aquí
                 }
             }
         )
     }
+
+    // Función para mostrar Toast
+    private fun showToast(message: String) {
+        // Verifica que el Fragment esté adjunto antes de mostrar el Toast
+        if (isAdded) {
+            Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+
 }

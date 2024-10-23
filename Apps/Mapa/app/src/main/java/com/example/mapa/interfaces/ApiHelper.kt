@@ -43,16 +43,18 @@ class ApiHelper {
                         processResponse(response)
                         Log.d("Response", "Datos recibidos correctamente")
                     } else {
-                        Log.d("Response", "Error en la respuesta: ${response.code()}")
+                        val errorBody = response.errorBody()?.string()
+                        Log.e("Response", "Error en la respuesta: ${response.code()}, Error Body: $errorBody")
                     }
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    Log.d("Response", "Error de red o excepción: ${e.message}")
+                    Log.e("Response", "Error de red o excepción: ${e.message}")
                 }
             }
         }
     }
+
 
 
 }

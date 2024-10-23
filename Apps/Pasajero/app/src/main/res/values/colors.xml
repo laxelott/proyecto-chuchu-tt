@@ -6,4 +6,22 @@
     <color name="search">#607670</color>
     <color name="principalGreen">#6ABDA6</color>
     <color name="buscadorBackground">#F1F6F5</color>
+
+    <color name="principal">#682444</color>
+    <color name="lightred">#9B6F83</color>
+    <color name="pink">#F0B4D0</color>
+    <color name="redx">#703E55</color>
+    <color name="reds">#461B2F</color>
+    <color name="strong">#330B1E</color>
+
+    <color name="warmbeige">#F5F5DC</color>
+    <color name="deepplum">#660066</color>
+    <color name="softsage">#BCE3C5</color>
+    <color name="richgold">#FFD700</color>
+    <color name="brightcoral">#FFC67D</color>
+    <color name="deepnavy">#032B44 </color>
+
+
+
+
 </resources>

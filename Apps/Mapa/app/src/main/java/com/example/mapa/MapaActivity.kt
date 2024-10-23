@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Canvas
 import android.location.Location
 import android.os.Bundle
 import android.os.Looper
@@ -19,6 +20,7 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -35,6 +37,7 @@ import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
+import com.google.android.gms.maps.model.BitmapDescriptor
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
@@ -47,12 +50,10 @@ import com.google.maps.android.PolyUtil
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
-import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import retrofit2.Call
@@ -77,11 +78,13 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var background: LinearLayout
     private val polylines: MutableList<Polyline> = mutableListOf()
     private var isLocationUpdatesActive = false
-    private var fetchBusStopsJob: Job? = null
+    private var speed = 0
     private val locationCallback = object : LocationCallback() {
         override fun onLocationResult(locationResult: LocationResult) {
             locationResult.locations.forEach { location ->
                 currentLocation = LatLng(location.latitude, location.longitude)
+                val speedInMetersPerSecond = location.speed
+                speed = (speedInMetersPerSecond).toInt()
             }
         }
     }
@@ -93,6 +96,13 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var fusedLocationProviderClient: FusedLocationProviderClient
     private lateinit var lastLocation: Location
     private var currentLocation: LatLng = LatLng(0.0, 0.0)
+    private var token: String = ""
+    private var routeID: Int = 0
+    private var vehicleIdentifier: String = ""
+    private var sendingDataJob: Job? = null
+    private var gettingIncidentsJob: Job? = null
+    private val incidentsMarkers = mutableMapOf<String, Marker>()
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -109,18 +119,11 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
         btnLocation = findViewById(R.id.location_button)
         btnReportIncident = findViewById(R.id.btn_report_incident)
         btnEndTravel = findViewById(R.id.traveling_container_button)
-
-        // Fetch bus stops from the selected line
-        val service = ApiHelper().prepareApi()
-        //showProgressBar()
-        fetchBusStops(service)
         coroutineScope = CoroutineScope(Dispatchers.Main + Job())
         progressBar = findViewById(R.id.progress_bar)
         background = findViewById(R.id.ownBackground)
 
-        // Configure CoroutineScope
-//        startSendingDataPeriodically()
-
+        updateCurrentLocation()
         // Initialize directions API
         val retrofit = Retrofit.Builder()
             .baseUrl("https://maps.googleapis.com/maps/api/")
@@ -128,21 +131,36 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
             .build()
         directionsAPI = retrofit.create(GoogleDirectionsApi::class.java)
 
-        // Configure location updates
-        //setupLocationUpdates()
+        // Get token and idRoute
+        token = intent.getStringExtra("token").toString()
+        routeID = intent.getIntExtra("idRoute", 0)
+        vehicleIdentifier = intent.getStringExtra("vehicleIdentifier").toString()
+
+        val service = ApiHelper().prepareApi()
+        fetchBusStops(service)
     }
 
-
-
-    override fun onDestroy() {
-        super.onDestroy()
-        // Cancelar cualquier corutina en proceso si la actividad se destruye
-        fetchBusStopsJob?.cancel()
+    private fun updateCurrentLocation() {
+        val locationRequest = LocationRequest.create().apply {
+            interval = 5000
+            fastestInterval = 2000
+            priority = LocationRequest.PRIORITY_HIGH_ACCURACY
+        }
+        if (isLocationPermissionGranted()) {
+            fusedLocationProviderClient.requestLocationUpdates(
+                locationRequest,
+                locationCallback,
+                Looper.getMainLooper()
+            )
+        } else {
+            Log.e("LocationError", "Permisos de ubicación no concedidos.")
+        }
     }
+
 
     private fun fetchBusStops(service: ApiService) {
         ApiHelper().getDataFromDB(
-            serviceCall = { service.getBusStopsInfo(60001) }, // Pasamos la función que hace la solicitud
+            serviceCall = { service.getBusStopsInfo(routeID) }, // Pasamos la función que hace la solicitud
             processResponse = { response ->
                 val busStopsInfo = response.body()
                 if (busStopsInfo != null) {
@@ -168,9 +186,6 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
         )
     }
 
-
-
-
     private fun setupMapMarkersAndRoutes() {
         if (!::mMap.isInitialized) return
         // Creating the markers and routes
@@ -180,10 +195,9 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
     private fun createRoutes() {
         val origin = busStops.first()
         val waypoints = gettingWaypointsFromDestinations(busStops)
-        Log.e("Waypoints", "Lista: ${waypoints}")
         getRoute(origin, origin, waypoints)
 
-        for ((i, busStop) in busStops.withIndex()) {
+        for (busStop in busStops) {
             createMarker(busStop)
         }
     }
@@ -249,7 +263,7 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
                 val lastWaypoint = chunk.last().split(",")
                 BusStop(
                     0,
-                    "Waypoint ${index}",
+                    "Waypoint $index",
                     lastWaypoint[0].toDouble(),
                     lastWaypoint[1].toDouble()
                 )
@@ -315,6 +329,7 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
         showTimeToDestination(busStops)
     }
 
+
     private fun showProgressBar() {
         progressBar.visibility = View.VISIBLE
         background.visibility = View.VISIBLE
@@ -327,10 +342,12 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private suspend fun showTimeToDestination(busStops: List<BusStop>) {
         withContext(Dispatchers.Main) {
+            startSendingDataPeriodically()
+            startGettingIncidents()
             showProgressBar()
             val travelTimes = mutableMapOf<BusStop, Pair<String, String>>()
             var currentStopIndex = 0
-            val destination = busStops.first()
+            val destination = busStops[2]
             var alertFinalDestinationShown = false
 
             while (currentStopIndex < busStops.size - 1) {
@@ -351,7 +368,6 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
                 var hasArrived = false
                 while (!hasArrived) {
                     delay(5000)
-                    updateCurrentLocation()
                     val currentDistance = calculateDistance(
                         LatLng(
                             currentLocation.latitude,
@@ -362,23 +378,54 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
                     hasArrived = updateTravelInfo(busStopDestination, currentDistance, duration)
 
                     if (alertFinalDestinationShown && hasArrived) {
-                        showBusStopAlert()
                         endTravel()
                     }
                     if (hasArrived) {
                         Log.e("Directions", "Llegaste a la parada: ${busStopDestination.name}")
                         currentStopIndex++
                     }
-
                 }
             }
-
         }
     }
+
+    private fun leaveVehicle() {
+        val service = ApiHelper().prepareApi()
+        val tokenRequest = TokenRequest(token)
+        ApiHelper().getDataFromDB(
+            serviceCall = { service.leaveVehicle(tokenRequest) },
+            processResponse = { response ->
+                val responseBody = response.body()
+                Log.d("Response", "$responseBody")
+                if (responseBody != null) {
+                    when (responseBody.error) {
+                        0 -> {
+                        }
+                        1 -> {
+                            val builder = AlertDialog.Builder(this)
+                            builder.setTitle("¡Error!")
+                                .setMessage("Consulta al administrador")
+                                .setPositiveButton("OK") { dialog, _ ->
+                                    dialog.dismiss()
+                                    finish()
+                                }
+                                .setCancelable(false)
+                            builder.create().show()
+                        }
+                    }
+                }
+            }
+        )
+
+    }
+
 
     private fun endTravel() {
         val container = findViewById<LinearLayout>(R.id.traveling_container)
         container.visibility = View.GONE
+        sendingDataJob?.cancel()
+        gettingIncidentsJob?.cancel()
+        leaveVehicle()
 
         val cameraPosition = CameraPosition.Builder()
             .target(currentLocation)
@@ -398,19 +445,6 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
             .setPositiveButton("OK") { dialog, _ ->
                 dialog.dismiss()
                 finish()
-            }
-            .setCancelable(false)
-        builder.create().show()
-    }
-
-    private fun showBusStopAlert() {
-        val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-        vibrator.vibrate(VibrationEffect.createOneShot(1000, VibrationEffect.DEFAULT_AMPLITUDE))
-        val builder = AlertDialog.Builder(this)
-        builder.setTitle("¡Llegaste a tu destino!")
-            .setMessage("Haz llegado a tu destino, gracias por viajar con Nintrip :)")
-            .setPositiveButton("OK") { dialog, _ ->
-                dialog.dismiss()
             }
             .setCancelable(false)
         builder.create().show()
@@ -440,26 +474,6 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
         builder.create().show()
     }
 
-    private fun updateCurrentLocation() {
-        if (isLocationPermissionGranted()) {
-            val locationRequest = createLocationRequest()
-            fusedLocationProviderClient.requestLocationUpdates(
-                locationRequest,
-                locationCallback,
-                Looper.getMainLooper()
-            )
-        } else {
-            Log.e("LocationError", "Permisos de ubicación no concedidos.")
-        }
-    }
-
-    private fun createLocationRequest(): LocationRequest {
-        return LocationRequest.create().apply {
-            interval = 2000
-            fastestInterval = 1000
-            priority = LocationRequest.PRIORITY_HIGH_ACCURACY
-        }
-    }
 
     private fun stopLocationUpdates() {
         if (!isLocationUpdatesActive) return
@@ -480,6 +494,7 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
         return results[0]
     }
 
+    @SuppressLint("SetTextI18n")
     private fun updateTravelInfo(
         busStopDestination: BusStop,
         currentDistance: Float,
@@ -491,11 +506,11 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
 
         return if (currentDistance < 10f) {
             showStop.text = "Estás en"
-            title.text = "${busStopDestination.name}"
+            title.text = busStopDestination.name
             true
         } else {
             showStop.text = "Siguiente estación"
-            title.text = "${busStopDestination.name}"
+            title.text = busStopDestination.name
             timer.text = duration
             false
         }
@@ -576,7 +591,7 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
                     val directionsResponse = response.body()
                     val legs = directionsResponse?.routes?.get(0)?.legs
 
-                    if (legs != null && legs.isNotEmpty()) {
+                    if (!legs.isNullOrEmpty()) {
                         val steps = legs[0].steps
                         displayDirections(steps)
                     } else {
@@ -613,34 +628,6 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
         textViewInst.text = instructions
     }
 
-
-    private fun setupLocationUpdates() {
-        val locationRequest = LocationRequest.create().apply {
-            interval = 1000
-            fastestInterval = 500
-            priority = LocationRequest.PRIORITY_HIGH_ACCURACY
-        }
-
-        val locationCallback = object : LocationCallback() {
-            override fun onLocationResult(locationResult: LocationResult) {
-                locationResult.locations.forEach { location ->
-                    //updateCameraPosition(location)
-                    // Check if the current location is within 5 meters of busStops[0]
-                }
-            }
-        }
-        // Start location updates
-        if (isLocationPermissionGranted()) {
-            fusedLocationProviderClient.requestLocationUpdates(
-                locationRequest,
-                locationCallback,
-                Looper.getMainLooper()
-            )
-        } else {
-            requestLocationPermission()
-        }
-    }
-
     private fun updateCameraPosition(location: Location) {
         val cameraPosition = CameraPosition.Builder()
             .target(LatLng(location.latitude, location.longitude))
@@ -652,12 +639,7 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
         mMap.animateCamera(CameraUpdateFactory.newCameraPosition(cameraPosition))
     }
 
-    fun isWithinDistance(busStop2: Location, minDistanceMeters: Float): Boolean {
-        val distance = lastLocation.distanceTo(busStop2)
-        return distance <= minDistanceMeters
-    }
-
-    fun showAlertDialog(context: Context) {
+    private fun showAlertDialog(context: Context) {
         if (context is Activity && !context.isFinishing) {
             AlertDialog.Builder(context).apply {
                 setTitle("Rango no permitido")
@@ -677,13 +659,18 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
 
 
     private fun startSendingDataPeriodically() {
-        coroutineScope.launch {
-            while (true) {
+        sendingDataJob?.cancel()
+        sendingDataJob = coroutineScope.launch {
+            while (isActive) {
                 withContext(Dispatchers.IO) {
-                    sendLatitudeLongitude(
-                        currentLocation.latitude,
-                        currentLocation.longitude
-                    )
+                    try {
+                        sendLatitudeLongitude(
+                            currentLocation.latitude,
+                            currentLocation.longitude
+                        )
+                    } catch (e: Exception) {
+                        Log.e("LocationUpdate", "Error sending location: ${e.message}")
+                    }
                 }
                 delay(5000)
             }
@@ -692,8 +679,10 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private suspend fun sendLatitudeLongitude(latitude: Double, longitude: Double) {
         try {
+            val tokenRequest = TokenRequest(token)
             Log.d("Transport My Location", "$latitude, $longitude")
-            val response = ApiHelper().prepareApi().postLatitudeLongitude(latitude, longitude)
+            val response =
+                ApiHelper().prepareApi().postLatitudeLongitude(latitude, longitude, tokenRequest)
             if (response.isSuccessful) {
                 Log.d("API Response", "Datos enviados correctamente")
             } else {
@@ -705,6 +694,60 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
         } catch (e: Exception) {
             Log.e("API Error", "Excepción: ${e.message}")
         }
+    }
+
+    private fun startGettingIncidents() {
+        gettingIncidentsJob?.cancel()
+        gettingIncidentsJob = coroutineScope.launch {
+            while (true) {
+                withContext(Dispatchers.IO) {
+                    getIncidentsList(routeID)
+                }
+                delay(5000)
+            }
+        }
+    }
+
+    private suspend fun getIncidentsList(routeID: Int) {
+        val service = ApiHelper().prepareApi()
+        ApiHelper().getDataFromDB(
+            serviceCall = { service.getIncidentsList(routeID) },
+            processResponse = { response ->
+                val incidents = response.body()
+                Log.d("Response", "$incidents")
+                if (incidents != null) {
+                    val currentLatLng = LatLng(currentLocation.latitude, currentLocation.longitude)
+                    for (incident in incidents) {
+                        Log.d("Response", "Creando marker para ${incident.incidentName}")
+                        val newPosition = LatLng(incident.lat, incident.lon)
+                        val existingMarker = incidentsMarkers[incident.incidentName]
+                        if (existingMarker != null) {
+                            existingMarker.position = newPosition
+
+                        } else {
+                            val marker = mMap.addMarker(
+                                MarkerOptions()
+                                    .position(newPosition)
+                            )
+                            marker?.let {
+                                it.tag = "driverLocation"
+                                incidentsMarkers[incident.incidentName] = it
+                            }
+                        }
+                    }
+                }
+            }
+        )
+    }
+
+    private fun getMarkerIconFromDrawable(drawableId: Int): BitmapDescriptor {
+        val drawable = ContextCompat.getDrawable(this, drawableId)
+            ?: throw IllegalArgumentException("Drawable not found: $drawableId")
+        val bitmap = Bitmap.createBitmap(200, 200, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        drawable.setBounds(0, 0, canvas.width, canvas.height)
+        drawable.draw(canvas)
+        return BitmapDescriptorFactory.fromBitmap(bitmap)
     }
 
     /**
@@ -755,26 +798,31 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun showReportIncident() {
-        // Show a new window or dialog when the travel ends
-        val dialogFragment = ReportIncidentDialogFragment()
+        val dialogFragment = ReportIncidentDialogFragment(routeID, currentLocation.latitude, currentLocation.longitude, token)
         dialogFragment.show(supportFragmentManager, "reportIncident")
     }
 
     private fun showEndTravelWindow() {
-        // Show a new window or dialog when the travel ends
-        val dialogFragment = EndTravelDialogFragment()
+        val dialogFragment = EndTravelDialogFragment(sendingDataJob, gettingIncidentsJob)
         dialogFragment.show(supportFragmentManager, "endTravelDialog")
     }
 
 
+    private fun isLocationPermissionGranted() = ContextCompat.checkSelfPermission(
+        this,
+        Manifest.permission.ACCESS_FINE_LOCATION
+    ) == PackageManager.PERMISSION_GRANTED
+
     private fun enableLocation() {
+        if (!::mMap.isInitialized) return
         if (isLocationPermissionGranted()) {
             mMap.isMyLocationEnabled = true
+
             fusedLocationProviderClient.lastLocation.addOnSuccessListener(this) { location ->
-                location?.let {
-                    lastLocation = it
+                if (location != null) {
+                    lastLocation = location
                     currentLocation = LatLng(location.latitude, location.longitude)
-                    updateCameraPosition(it)
+                    mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLocation, 16f))
                 }
             }
         } else {
@@ -782,19 +830,68 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
         }
     }
 
-    private fun isLocationPermissionGranted(): Boolean {
-        return ContextCompat.checkSelfPermission(
-            this,
-            Manifest.permission.ACCESS_FINE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
+    private fun requestLocationPermission() {
+        if (ActivityCompat.shouldShowRequestPermissionRationale(
+                this,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            )
+        ) {
+            Toast.makeText(
+                this,
+                "Habilita los permisos de localización en ajustes",
+                Toast.LENGTH_SHORT
+            ).show()
+        } else {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
+                REQUEST_CODE_LOCATION
+            )
+        }
     }
 
-    private fun requestLocationPermission() {
-        ActivityCompat.requestPermissions(
-            this,
-            arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
-            REQUEST_CODE_LOCATION
-        )
+    //metodo para capturar la respuesta de que el usuario acepto los permisos
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        when (requestCode) {
+            REQUEST_CODE_LOCATION -> if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                mMap.isMyLocationEnabled = true
+                //Go to my current location
+                fusedLocationProviderClient.lastLocation.addOnSuccessListener(this) { location ->
+                    if (location != null) {
+                        lastLocation = location
+                        currentLocation = LatLng(location.latitude, location.longitude)
+                        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLocation, 16f))
+                    }
+                }
+            } else {
+                Toast.makeText(
+                    this,
+                    "Ve a ajustes para aceptar los permisos de localizacion",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+
+            else -> {}
+        }
+    }
+
+    //Metodo para comprobar que los permisos siguen activos despues de que el usuario dejo la aplicacion en background
+    override fun onResumeFragments() {
+        super.onResumeFragments()
+        if (!::mMap.isInitialized) return
+        if (!isLocationPermissionGranted()) {
+            mMap.isMyLocationEnabled = false
+            Toast.makeText(
+                this,
+                "Ve a ajustes para aceptar los permisos de localizacion",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
     }
 
 }

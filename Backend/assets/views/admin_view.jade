@@ -2,52 +2,247 @@ doctype html
 html(lang='en')
   head
     meta(charset='UTF-8')
-    meta(name='viewport', content='width=device-width, initial-scale=1.0')
-    link(rel='stylesheet', href='../stylesheets/base.css') 
+    meta(name='viewport', content='width=device-width, initial-scale=1.0') 
     link(rel='stylesheet', href='../stylesheets/dashboard.css') 
     link(rel='preconnect', href='https://fonts.googleapis.com')
     link(rel='preconnect', href='https://fonts.gstatic.com', crossorigin)
     link(href='https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap', rel='stylesheet')
-    title Dashboard Admin
+    link(rel='stylesheet', href='https://cdn.datatables.net/1.11.5/css/jquery.dataTables.min.css')
+    script(src='https://code.jquery.com/jquery-3.6.0.min.js')
+    script(src='https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js')
+    script.
+      $(document).ready(function() {
+        $('#transportsTable, #routesTable, #vehiclesTable, #driversTable, #stopsTable').DataTable();
+
+        // Form submissions
+        ['Transport', 'Route', 'Vehicle', 'Driver', 'Stop'].forEach(form => {
+          $(`#add${form}Form`).submit(function(e) {
+            e.preventDefault();
+            $.post(`/api/admin/create${form}`, $(this).serialize(), function(response) {
+              alert(response.message);
+              location.reload();
+            });
+          });
+        });
+
+        // Lógica para mostrar la tabla seleccionada
+        $('li').click(function() {
+          var target = $(this).data('target');
+          $('section').hide(); // Ocultar todas las secciones
+          $(target).show(); // Mostrar la sección seleccionada
+        });
+
+        // Mostrar la primera tabla por defecto
+        $('section').hide(); 
+        $('#transports').show(); 
+
+        // Logout del admin
+        document.getElementById('logoutAdminForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const token = localStorage.getItem('adminToken'); // Asumiendo que el token está guardado en localStorage
+            
+            $.post('/api/admin/logoutadmin', { token }, function(response) {
+              alert(response.message);
+              window.location.href = '/loginadmin'; // Redirigir al login tras el logout
+            });
+        });
+      })
+    title Tablero de Administración
   body
     header
-      nav
-        ul
-          li
-            a(href='/') Inicio
-          li
-            a(href='/admin/users') Usuarios
-          li
-            a(href='/admin/reports') Reportes
-          li
-            a(href='/admin/settings') Configuraciones
-          li
-            form(method='post') 
-              button(type='submit') Cerrar Sesión
+      .logo
+          img(src='../icons/location.svg', alt='Logo')
+          span Nintrip
+      .nav
+        a(href='/') Inicio
+        a(href='./pasajero') Pasajero
+        a(href='./conductor') Conductor
+        a(href='./admin_view') Prueba de front
+        form#logoutAdminForm(method="POST", action="/api/admin/logoutadmin")
+          button(type="submit") Logout
+    aside.sidebar
+      ul
+        li(data-target='#transports') Transporte
+        li(data-target='#routes') Rutas
+        li(data-target='#vehicles') Vehículos
+        li(data-target='#drivers') Conductores
+        li(data-target='#stops') Paradas
 
-    main
-      section.dashboard
-        h1 Dashboard del Administrador
-        .content
-          h2 Bienvenido al panel de control
-          .cards
-            .card
-              h3 Usuarios activos
-              span 120
-            .card
-              h3 Reportes generados
-              span 35
-            .card
-              h3 Tareas pendientes
-              span 15
-          .actions
-            h2 Acciones rápidas
-            ul
-              li
-                a(href='/admin/create-user') Crear nuevo usuario
-              li
-                a(href='/admin/generate-report') Generar reporte
-              li
-                a(href='/admin/settings') Configurar sistema
+main.content
+  section#transports
+      h2 Transporte
+      table#transportsTable
+        thead
+          tr
+            th Id Transporte
+            th Nombre del transporte
+            th Imagen
+            th Borrar
+        tbody
+          //-each transport in transports
+            tr
+              td= transport.idTransport
+              td= transport.name
+              td= transport.iconB64
+              td 
+                button Delete
+          tr
+            th 1
+            th Example Transport
+            th (icon here)
+            th 
+                  button Delete
+
+      form#addTransportForm
+        input(type='text', name='name', placeholder='Transport Name')
+        input(type='file', name='iconB64', placeholder='Transport Icon')
+        button(type='submit') Add Transport
+
+      // Routes Table
+  section#routes
+      h2 Rutas
+      table#routesTable
+        thead
+          tr
+            th ID
+            th Name
+            th Description
+            th Color
+            th Icon
+            th Borrar
+        tbody
+            //-  each route in routes
+                tr
+                  td= route.idRoute
+                  td= route.name
+                  td= route.description
+                  td= route.color
+                  td= route.iconB64
+                  td 
+                    button Delete
+          tr
+            th 1
+            th Example Route
+            th Example Description
+            th Red
+            th (icon here)
+              th 
+                  button Delete
+
+      form#addRouteForm
+        input(type='text', name='name', placeholder='Route Name')
+        input(type='text', name='description', placeholder='Route Description')
+        input(type='text', name='color', placeholder='Route Color')
+        input(type='file', name='iconB64', placeholder='Route Icon')
+        input(type='number', name='idTransport', placeholder='Transport ID')
+        button(type='submit') Add Route
+
+  section#stops
+      // Stops Table
+      h2 Stops
+      table#stopsTable
+        thead
+          tr
+            th ID
+            th Name
+            th Coordinates
+            th Borrar
+        tbody
+          //-  each stop in stops
+              tr
+                td= stop.idStop
+                td= stop.name
+                td= `${stop.coordX}, ${stop.coordY}`
+                td 
+                  button Delete
+          tr
+            th 1
+            th Example Stop
+            th 19.4326, -99.1332 
+            th 
+              button Delete       
+      form#addStopForm
+        input(type='text', name='name', placeholder='Stop Name')
+        input(type='number', step='any', name='coordX', placeholder='Coordinate X')
+        input(type='number', step='any', name='coordY', placeholder='Coordinate Y')
+        input(type='number', name='idRoute', placeholder='Route ID')
+        input(type='file', name='iconB64', placeholder='Stop Icon')
+        button(type='submit') Añadir Estacion
+
+      // Vehicles Table
+  section#vehicles
+      h2 Vehicles
+      table#vehiclesTable
+        thead
+          tr
+            th ID
+            th Identifier
+            th Driver Token
+            th Borrar
+        tbody
+          //-  each vehicle in vehicles
+              tr
+                td= vehicle.idVehicle
+                td= vehicle.identifier
+                td= vehicle.driverToken
+                td 
+                  button Delete
+          tr
+            th 1
+            th Example Vehicle
+            th None
+            th 
+              button Delete       
+
+
+      form#addVehicleForm
+        input(type='text', name='identifier', placeholder='Vehicle Identifier')
+        input(type='text', name='driverToken', placeholder='Driver Token (Optional)')
+        button(type='submit') Add Vehicle
+
+      // Drivers Table
+  section#drivers
+      h2 Drivers
+      table#driversTable
+        thead
+          tr
+            th ID
+            th Name
+            th Username
+            th Phone
+            th Borrar
+        tbody
+          //-  each driver in drivers
+              tr
+                td= driver.idDriver
+                td= driver.name
+                td= driver.username
+                td= driver.phone
+                td 
+                  button Delete
+          tr
+            th 1
+            th Example Driver
+            th exampleUser
+            th 123-456-7890
+            th 
+                  button Delete 
+
+      form#addDriverForm
+        input(type='text', name='curp', placeholder='CURP')
+        input(type='text', name='name', placeholder='Name')
+        input(type='text', name='surnameP', placeholder='Surname Paternal')
+        input(type='text', name='surnameM', placeholder='Surname Maternal')
+        input(type='text', name='username', placeholder='Username')
+        input(type='text', name='phone', placeholder='Phone')
+        input(type='text', name='password', placeholder='Password')
+        button(type='submit') Add Driver
+
     footer
-      p &copy; 2024 Nintrip - Todos los derechos reservados
+      .logo
+        img(src='../icons/location-white.svg', alt='Logo')
+        span Nintrip
+      .school
+        h1 Instituto Politécnico Nacional
+        br
+        h1 Escuela Superior de Cómputo

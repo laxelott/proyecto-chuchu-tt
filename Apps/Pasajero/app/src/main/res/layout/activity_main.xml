@@ -12,68 +12,145 @@
         android:layout_width="0dp"
         android:layout_height="0dp"
         android:orientation="vertical"
-        android:padding="8dp"
+        android:background="@drawable/gradient_background"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:gravity="center"
-            android:orientation="horizontal">
 
-            <ImageView
-                android:layout_width="70dp"
-                android:layout_height="70dp"
-                android:src="@drawable/escom"
-                />
+        <androidx.cardview.widget.CardView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:cardBackgroundColor="@android:color/transparent"
+            app:cardElevation="4dp"
+            app:cardCornerRadius="0dp">
+
+        <ImageView
+            android:id="@+id/background_escom"
+            android:layout_width="match_parent"
+            android:layout_height="130dp"
+            android:scaleType="centerCrop"
+            android:src="@drawable/escom" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="130dp"
+            android:background="#80000000" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:paddingVertical="30dp"
+                android:orientation="horizontal">
+
+                <ImageView
+                    android:layout_width="70dp"
+                    android:layout_height="70dp"
+                    android:src="@drawable/imagen_escom" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginHorizontal="8dp"
+                    android:fontFamily="@font/poppins_bold"
+                    android:gravity="center"
+                    android:text="Instituto Politécnico \nNacional"
+                    android:textColor="@color/warmbeige"
+                    android:textSize="20sp" />
+
+                <ImageView
+                    android:layout_width="70dp"
+                    android:layout_height="70dp"
+                    android:src="@drawable/ipn" />
+
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/pink"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="8dp"/>
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="10dp"
+            android:padding="10dp"
+            android:background="@drawable/normal_shape"
+            android:orientation="vertical">
+            <TextView
+                android:id="@+id/greeting"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/poppins_semibold"
+                android:gravity="center"
+                android:textColor="@color/warmbeige"
+                android:text="@string/TT"
+                android:textSize="18sp" />
 
             <TextView
-                android:layout_width="wrap_content"
+                android:id="@+id/login_text"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:fontFamily="@font/poppins_bold"
-                android:text="Instituto Politécnico \nNacional"
+                android:fontFamily="@font/poppins_semibold"
                 android:gravity="center"
-                android:layout_marginHorizontal="8dp"
-                android:textSize="20sp" />
-
-            <ImageView
-                android:layout_width="70dp"
-                android:layout_height="70dp"
-                android:src="@drawable/ipn"
-                />
-
+                android:text="Trabajo Terminal 2024-B190"
+                android:textColor="@color/warmbeige"
+                android:textSize="18sp" />
         </LinearLayout>
 
-        <TextView
-            android:id="@+id/greeting"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:fontFamily="@font/poppins_bold"
-            android:gravity="center"
-            android:text="@string/TT"
-            android:layout_marginTop="10dp"
-            android:textSize="18sp" />
 
-        <TextView
-            android:id="@+id/login_text"
+        <View
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:fontFamily="@font/poppins_bold"
-            android:text="Trabajo Terminal 2024-B190"
-            android:gravity="center"
-            android:textSize="18sp" />
+            android:layout_height="1dp"
+            android:background="@color/pink"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="8dp"/>
 
-        <LinearLayout
-            android:id="@+id/layout_transports"
+        <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:gravity="center"
-            android:orientation="horizontal">
+            android:layout_margin="10dp"
+            android:background="@drawable/normal_shape">
 
-        </LinearLayout>
+
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical"
+                android:gravity="center|bottom">
+
+                <TextView
+                    android:id="@+id/select_transport"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:fontFamily="@font/poppins_semibold"
+                    android:text="@string/selectT"
+                    android:layout_marginTop="20dp"
+                    android:textColor="@color/warmbeige"
+                    android:textSize="18sp" />
+
+                <LinearLayout
+                    android:id="@+id/layout_transports"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:orientation="horizontal">
+                </LinearLayout>
+
+            </LinearLayout>
+
+        </FrameLayout>
+
+
+
+
 
     </LinearLayout>
 

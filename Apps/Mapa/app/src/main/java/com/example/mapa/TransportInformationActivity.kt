@@ -19,6 +19,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.example.pasajero.interfaces.ApiHelper
 import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -46,7 +47,6 @@ class TransportInformationActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_transport_information)
-        enableEdgeToEdge()
         setupUI()
         checkUserSession()
         loadDriverInfo()
@@ -89,14 +89,18 @@ class TransportInformationActivity : AppCompatActivity() {
                 .post(formBody)
                 .build()
 
+
             try {
                 val response = client.newCall(request).execute()
+
                 if (response.isSuccessful) {
                     val responseBody = response.body?.string()
-                    val logoutSuccess = Gson().fromJson(responseBody, LogoutSuccess::class.java)
+                    val listType = object : TypeToken<List<LogoutSuccess>>() {}.type
+                    val loginSuccessList: List<LogoutSuccess> = Gson().fromJson(responseBody, listType)
+
 
                     withContext(Dispatchers.Main) {
-                        when (logoutSuccess.logout) {
+                        when (loginSuccessList.first().logout) {
                             "0" -> {
                                 val intent = Intent(this@TransportInformationActivity, MainActivity::class.java)
                                 startActivity(intent)
@@ -187,7 +191,8 @@ class TransportInformationActivity : AppCompatActivity() {
                 val selectedOption = options[position]
                 btnStart.isEnabled = selectedOption != "Selecciona una opción"
                 if (btnStart.isEnabled) {
-                    setupStartButton()
+                    val idroute = allInfo[0].idRoute
+                    setupStartButton(selectedOption, idroute)
                 }
             }
 
@@ -197,10 +202,50 @@ class TransportInformationActivity : AppCompatActivity() {
         }
     }
 
-    private fun setupStartButton() {
+    private fun setupStartButton(selectedOption: String, idroute: Int) {
         btnStart.setOnClickListener {
-            startActivity(Intent(this, MapaActivity::class.java))
+
+
+            useVehicle(conductorToken, selectedOption)
+
+            val intent = Intent(this, MapaActivity::class.java)
+            intent.putExtra("token", conductorToken)
+            intent.putExtra("idRoute", idroute)
+            intent.putExtra("vehicleIdentifier", selectedOption)
+            startActivity(intent)
         }
+    }
+
+    private fun useVehicle(token:String, vehicleIdentifier: String) {
+        val service = ApiHelper().prepareApi()
+        val tokenRequest = TokenRequest(token)
+        ApiHelper().getDataFromDB(
+            serviceCall = { service.postUseVehicle(vehicleIdentifier, tokenRequest) }, // Pasamos la función que hace la solicitud
+            processResponse = { response ->
+                val responseBody = response.body()
+                Log.d("Response", "$responseBody")
+                if (responseBody != null) {
+                    when (responseBody.error) {
+                        0 -> {
+                        }
+                        2 -> {
+                            newAlertDialog("¡Alerta!", "Este vehículo ya está en uso")
+                        }
+                    }
+                }
+            }
+        )
+    }
+
+    private fun newAlertDialog(title: String, message: String) {
+        AlertDialog.Builder(this)
+            .setTitle(title)
+            .setMessage(message)
+            .setPositiveButton("OK") { dialog, _ ->
+                dialog.dismiss()
+            }
+            .setCancelable(false)
+            .show()
     }
 
     private fun showErrorDialog(message: String) {

@@ -42,7 +42,7 @@ class BusStopAdapter(
                 binding.searchBar.setText("")
             }
             binding.rvEstaciones.visibility = View.GONE
-            mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(busStop.latitude, busStop.longitude), 20f))
+            mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(busStop.latitude, busStop.longitude), 18f))
             // Buscar el marcador correspondiente y mostrar el InfoWindow
             val marker = findMarkerForBusStop(busStop)
             marker?.showInfoWindow()
