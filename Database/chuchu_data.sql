@@ -36,52 +36,104 @@ CALL linkDriverVehicle('JAHN9601222MCXNMN3', 'A78-ERE');
 INSERT INTO `Transport`(idTransport, name, iconB64) VALUES (2001, N'Trolebus','PHZlY3RvciB4bWxuczphbmRyb2lkPSJodHRwOi8vc2NoZW1hcy5hbmRyb2lkLmNvbS9hcGsvcmVzL2FuZHJvaWQiCiAgICBhbmRyb2lkOndpZHRoPSI1MGRwIgogICAgYW5kcm9pZDpoZWlnaHQ9IjUwZHAiCiAgICBhbmRyb2lkOnZpZXdwb3J0V2lkdGg9Ijk3NSIKICAgIGFuZHJvaWQ6dmlld3BvcnRIZWlnaHQ9Ijk3NSI+CiAgPGdyb3VwPgogICAgPGNsaXAtcGF0aAogICAgICAgIGFuZHJvaWQ6cGF0aERhdGE9Ik0wLDBoOTc1djk3NWgtOTc1eiIvPgogICAgPHBhdGgKICAgICAgICBhbmRyb2lkOnBhdGhEYXRhPSJNOTczLjM0LDY2LjU2Qzk3My4zNCwzMC4yNCA5NDMuOTcsMC44IDkwNy43NiwwLjhMNTM5Ljk0LDAuOCA0ODcuMTQsNTMuODQgNDM0LjMzLDAuOCA2NS43MSwwLjhDMjkuNSwwLjggMC4xNCwzMC4yNCAwLjE0LDY2LjU2TDAuMTQsNDM1LjQgNTIuMyw0ODcuOCAwLjE0LDU0MC4yIDAuMTQsOTA5LjA0QzAuMTQsOTQ1LjM2IDI5LjUsOTc0LjggNjUuNzEsOTc0LjhMNDM2Ljk1LDk3NC44IDQ4Ny4xNCw5MjQuMzkgNTM3LjMyLDk3NC44IDkwOC41Niw5NzQuOEM5NDQuNzcsOTc0LjggOTc0LjE0LDk0NS4zNiA5NzQuMTQsOTA5LjA0TDk3NC4xNCw1NDAuOTIgOTIxLjI2LDQ4Ny44IDk3NC4xNCw0MzQuNjlaIgogICAgICAgIGFuZHJvaWQ6ZmlsbENvbG9yPSIjMDA1N0I4IgogICAgICAgIGFuZHJvaWQ6ZmlsbFR5cGU9ImV2ZW5PZGQiLz4KICAgIDxwYXRoCiAgICAgICAgYW5kcm9pZDpwYXRoRGF0YT0iTTY1My45OCw3NjUuODQgTDMyNS4xOSw3NjUuODQgNTA0LjkyLDQ1NC43MiA0MzAuMTYsNDU0LjcyIDI1MC40MSw3NjUuODQgMTQ2LjEyLDc2NS44NCAzMjUuODIsNDU0LjcyIDE3OC4zNiw0NTQuNzIgMTc4LjM2LDM2NC40IDM3Ny45OCwzNjQuNCA0MTUuNjgsMjk5LjE2IDE3OC4zNiwyOTkuMTYgMTc4LjM2LDIwOC44NCA4MjcuMTIsMjA4Ljg0IDgyNy4xMiwyOTkuMTYgNTE5Ljk4LDI5OS4xNiA0ODIuMywzNjQuNCA4MjcuMTIsMzY0LjQgODI3LjEyLDQ1NC43MiA2MDkuMjQsNDU0LjcyIDQ4MS43Miw2NzUuNTUgNjUzLjk4LDY3NS41NVoiCiAgICAgICAgYW5kcm9pZDpmaWxsQ29sb3I9IiNGRkZGRkYiCiAgICAgICAgYW5kcm9pZDpmaWxsVHlwZT0iZXZlbk9kZCIvPgogICAgPHBhdGgKICAgICAgICBhbmRyb2lkOnBhdGhEYXRhPSJNNzQwLjEzLDYxMC44MiBMNTkzLjEzLDYxMC44MiA2NDUuMDUsNTE5LjgyIDc0MC4xMyw1MTkuODJaIgogICAgICAgIGFuZHJvaWQ6ZmlsbENvbG9yPSIjRkZGRkZGIgogICAgICAgIGFuZHJvaWQ6ZmlsbFR5cGU9ImV2ZW5PZGQiLz4KICA8L2dyb3VwPgo8L3ZlY3Rvcj4K');
 INSERT INTO `Route`(idRoute, idTransport, name, description, color) VALUES (60001, 2001, N'Linea 8', N'Circuito Politécnico', N'FF2B78E4');
 
-CALL upsertStop(60001, N'El Queso', 19.4949401551899, -99.1349875800365, NULL);
-CALL upsertStop(60001, N'Oroya', 19.4949770293232, -99.1363467471817, N'El Queso');
-CALL upsertStop(60001, N'Huacho', 19.495667121671, -99.1395313924074, N'Oroya');
-CALL upsertStop(60001, N'Av. 45 Metros', 19.4961453076498, -99.1407199775522, N'Huacho');
-CALL upsertStop(60001, N'Fte. Centro de Formación Educativa', 19.4967571855356, -99.1421566028128, N'Av. 45 Metros');
-CALL upsertStop(60001, N'Via Ceti', 19.4976117865935, -99.1439697760968, N'Fte. Centro de Formación Educativa');
-CALL upsertStop(60001, N'Salvatierra', 19.4984335141151, -99.1459143775843, N'Via Ceti');
-CALL upsertStop(60001, N'Cda. Manuel Stampa', 19.4991367227318, -99.1467941810934, N'Salvatierra');
-CALL upsertStop(60001, N'Esc. Nacional de Ciencias Biológicas', 19.498705182378, -99.1455784559949, N'Cda. Manuel Stampa');
-CALL upsertStop(60001, N'Centro de Formación Educativa', 19.497007885578, -99.1418908960169, N'Esc. Nacional de Ciencias Biológicas');
-CALL upsertStop(60001, N'Planetario', 19.4962231086011, -99.14021630252, N'Centro de Formación Educativa');
-CALL upsertStop(60001, N'Cenlex', 19.4959885768089, -99.1392849095302, N'Planetario');
-CALL upsertStop(60001, N'Fte. Edif. 1 Esime', 19.4978560799053, -99.136714934243, N'Cenlex');
-CALL upsertStop(60001, N'Fte. Edif. 2 Esime', 19.4984609699412, -99.1365764743687, N'Fte. Edif. 1 Esime');
-CALL upsertStop(60001, N'Fte. Edif. 4 Esime', 19.499880164643, -99.1362567513563, N'Fte. Edif. 2 Esime');
-CALL upsertStop(60001, N'Fte. Edif. 6 Esiqie', 19.5011746723893, -99.1360689967739, N'Fte. Edif. 4 Esime');
-CALL upsertStop(60001, N'Fte. Edif. 8 Esiqie', 19.5024388299327, -99.1357685893982, N'Fte. Edif. 6 Esiqie');
-CALL upsertStop(60001, N'Manuel de Anda Y Barredo', 19.503582706565, -99.1359698702366, N'Fte. Edif. 8 Esiqie');
-CALL upsertStop(60001, N'Fte. Edif 11 Esia', 19.503738841312, -99.1371175635296, N'Manuel de Anda Y Barredo');
-CALL upsertStop(60001, N'Cancha de Entrenamiento Pieles Rojas', 19.5042114535381, -99.1394787715645, N'Fte. Edif 11 Esia');
-CALL upsertStop(60001, N'Fte. Central de Inteligencia de Cómputo', 19.5046859557844, -99.1422316747015, N'Cancha de Entrenamiento Pieles Rojas');
-CALL upsertStop(60001, N'R Ma. Luisa Stampa Orti;za', 19.5048635499717, -99.1432228422527, N'Fte. Central de Inteligencia de Cómputo');
-CALL upsertStop(60001, N'Escom', 19.505844504147, -99.1455457060247, N'R Ma. Luisa Stampa Orti;za');
-CALL upsertStop(60001, N'Av. Miguel Othón de Mendizábal Ote. - Av. Juan de Dios Bátiz', 19.5062512509023, -99.1472991018159, N'Escom');
-CALL upsertStop(60001, N'Av. Miguel Othón de Mendizábal Ote. - Neptuno', 19.5056587067313, -99.1488440389853, N'Av. Miguel Othón de Mendizábal Ote. - Av. Juan de Dios Bátiz');
-CALL upsertStop(60001, N'Eje Central Lázaro Cárdenas - Av. Miguel O. de Mendizábal Ote.', 19.5047177404643, -99.1502901918332, N'Av. Miguel Othón de Mendizábal Ote. - Neptuno');
-CALL upsertStop(60001, N'Eje Central Lázaro Cárdenas - Politécnico Oriente', 19.5002001691551, -99.148505917351, N'Eje Central Lázaro Cárdenas - Av. Miguel O. de Mendizábal Ote.');
-CALL upsertStop(60001, N'Eje Central Lázaro Cárdenas - Av. Wilfrido Massieu', 19.4990109740478, -99.1480355133274, N'Eje Central Lázaro Cárdenas - Politécnico Oriente');
-CALL upsertStop(60001, N'Eje Central Lázado Cárdenas - Cda. de Otavalo', 19.4953208100633, -99.1465665413194, N'Eje Central Lázaro Cárdenas - Av. Wilfrido Massieu');
-CALL upsertStop(60001, N'Montevideo', 19.4936406476243, -99.1466143724623, N'Eje Central Lázado Cárdenas - Cda. de Otavalo');
-CALL upsertStop(60001, N'Politécnico Poniente', 19.5005476092996, -99.1496036090908, N'Montevideo');
-CALL upsertStop(60001, N'Eje Central Lázaro Cárdenas - Av. Miguel. O. de Mendizábal Ote.', 19.5045199499282, -99.1511630776174, N'Politécnico Poniente');
-CALL upsertStop(60001, N'Juan de D. Batiz', 19.5064720056217, -99.1464826304588, N'Eje Central Lázaro Cárdenas - Av. Miguel. O. de Mendizábal Ote.');
-CALL upsertStop(60001, N'Fte. Escom', 19.5055628404822, -99.1450912693381, N'Juan de D. Batiz');
-CALL upsertStop(60001, N'Ma. Luisa Stampa Orti;za', 19.5051401619989, -99.1431909452342, N'Fte. Escom');
-CALL upsertStop(60001, N'Central de Inteligencia de Cómputo', 19.5049447296332, -99.1421383435297, N'Ma. Luisa Stampa Orti;za');
-CALL upsertStop(60001, N'Secretaria de Extensión Y Difusión', 19.5045688974968, -99.1397460670399, N'Central de Inteligencia de Cómputo');
-CALL upsertStop(60001, N'Biblioteca Esia', 19.50428927782, -99.1384159612606, N'Secretaria de Extensión Y Difusión');
-CALL upsertStop(60001, N'Edif 11 Esia', 19.5041297087128, -99.1369261814186, N'Biblioteca Esia');
-CALL upsertStop(60001, N'Edif. 10 Esia', 19.5039830239339, -99.1357729056504, N'Edif 11 Esia');
-CALL upsertStop(60001, N'Edif. 8 Esiqie', 19.5024388299327, -99.1355593771078, N'Edif. 10 Esia');
-CALL upsertStop(60001, N'Edif. 6 Esiqie', 19.5010988220785, -99.135795411471, N'Edif. 8 Esiqie');
-CALL upsertStop(60001, N'Edif. 4 Esime', 19.499880164643, -99.1360368102304, N'Edif. 6 Esiqie');
-CALL upsertStop(60001, N'Edif. 2 Esime', 19.498560162195, -99.1363197378838, N'Edif. 4 Esime');
-CALL upsertStop(60001, N'Edif. 1 Esime', 19.4978416589043, -99.1364507294133, N'Edif. 2 Esime');
-CALL upsertStop(60001, N'Terminal Zacatenco', 19.4953797626839, -99.1360002743384, N'Edif. 1 Esime');
+INSERT INTO Chuchu.Stop (idStop,idRoute,name,lat,lon,iconB64,idNext,distanceTo) VALUES
+	 (1,60001,'El Queso',19.4949401551899,-99.1349875800365,NULL,NULL,260.49),
+	 (2,60001,'Oroya',19.4949770293232,-99.1363467471817,NULL,1,344.84),
+	 (3,60001,'Huacho',19.495667121671,-99.1395313924074,NULL,2,138.08),
+	 (4,60001,'Av. 45 Metros',19.4961453076498,-99.1407199775522,NULL,3,163.28),
+	 (5,60001,'Fte. Centro de Formación Educativa',19.4967571855356,-99.1421566028128,NULL,4,216.99),
+	 (6,60001,'Via Ceti',19.4976117865935,-99.1439697760968,NULL,5,223.66),
+	 (7,60001,'Salvatierra',19.4984335141151,-99.1459143775843,NULL,6,156.19),
+	 (8,60001,'Cda. Manuel Stampa',19.4991367227318,-99.1467941810934,NULL,7,137.38),
+	 (9,60001,'Esc. Nacional de Ciencias Biológicas',19.498705182378,-99.1455784559949,NULL,8,429.16),
+	 (10,60001,'Centro de Formación Educativa',19.497007885578,-99.1418908960169,NULL,9,197.71);
+INSERT INTO Chuchu.Stop (idStop,idRoute,name,lat,lon,iconB64,idNext,distanceTo) VALUES
+	 (11,60001,'Planetario',19.4962231086011,-99.14021630252,NULL,10,99.69),
+	 (12,60001,'Cenlex',19.4959885768089,-99.1392849095302,NULL,11,490.95),
+	 (13,60001,'Fte. Edif. 1 Esime',19.4978560799053,-99.136714934243,NULL,12,69.32),
+	 (14,60001,'Fte. Edif. 2 Esime',19.4984609699412,-99.1365764743687,NULL,13,164.69),
+	 (15,60001,'Fte. Edif. 4 Esime',19.499880164643,-99.1362567513563,NULL,14,145.24),
+	 (16,60001,'Fte. Edif. 6 Esiqie',19.5011746723893,-99.1360689967739,NULL,15,159.78),
+	 (17,60001,'Fte. Edif. 8 Esiqie',19.5024388299327,-99.1357685893982,NULL,16,157.85),
+	 (18,60001,'Manuel de Anda Y Barredo',19.503582706565,-99.1359698702366,NULL,17,112.16),
+	 (19,60001,'Fte. Edif 11 Esia',19.503738841312,-99.1371175635296,NULL,18,280.63),
+	 (20,60001,'Cancha de Entrenamiento Pieles Rojas',19.5042114535381,-99.1394787715645,NULL,19,294.63);
+INSERT INTO Chuchu.Stop (idStop,idRoute,name,lat,lon,iconB64,idNext,distanceTo) VALUES
+	 (21,60001,'Fte. Central de Inteligencia de Cómputo',19.5046859557844,-99.1422316747015,NULL,20,106.57),
+	 (22,60001,'R Ma. Luisa Stampa Ortiza',19.5048635499717,-99.1432228422527,NULL,21,252.99),
+	 (23,60001,'Escom',19.50548548410783,-99.14544052233371,NULL,22,225.61),
+	 (24,60001,'Av. Miguel Othón de Mendizábal Ote. - Av. Juan de Dios Bátiz',19.5062512509023,-99.1472991018159,NULL,23,209.86),
+	 (25,60001,'Av. Miguel Othón de Mendizábal Ote. - Neptuno',19.5056587067313,-99.1488440389853,NULL,24,241.79),
+	 (26,60001,'Eje Central Lázaro Cárdenas - Av. Miguel O. de Mendizábal Ote.',19.5047177404643,-99.1502901918332,NULL,25,523.42),
+	 (27,60001,'Eje Central Lázaro Cárdenas - Politécnico Oriente',19.5002001691551,-99.148505917351,NULL,26,141.39),
+	 (28,60001,'Eje Central Lázaro Cárdenas - Av. Wilfrido Massieu',19.4990109740478,-99.1480355133274,NULL,27,441.26),
+	 (29,60001,'Eje Central Lázado Cárdenas - Cda. de Otavalo',19.4953208100633,-99.1465665413194,NULL,28,236.45),
+	 (30,60001,'Montevideo',19.4936406476243,-99.1466143724623,NULL,29,846.93);
+INSERT INTO Chuchu.Stop (idStop,idRoute,name,lat,lon,iconB64,idNext,distanceTo) VALUES
+	 (31,60001,'Politécnico Poniente',19.5005476092996,-99.1496036090908,NULL,30,464.24),
+	 (32,60001,'Eje Central Lázaro Cárdenas - Av. Miguel. O. de Mendizábal Ote.',19.5045199499282,-99.1511630776174,NULL,31,615.08),
+	 (33,60001,'Juan de D. Batiz',19.5064720056217,-99.1464826304588,NULL,32,172.69),
+	 (34,60001,'Fte. Escom',19.5055628404822,-99.1450912693381,NULL,33,200.93),
+	 (35,60001,'Ma. Luisa Stampa Ortiza',19.5051401619989,-99.1431909452342,NULL,34,114.37),
+	 (36,60001,'Central de Inteligencia de Cómputo',19.5049447296332,-99.1421383435297,NULL,35,255.41),
+	 (37,60001,'Secretaria de Extensión Y Difusión',19.5045688974968,-99.1397460670399,NULL,36,139.77),
+	 (38,60001,'Biblioteca Esia',19.50428927782,-99.1384159612606,NULL,37,156.29),
+	 (39,60001,'Edif 11 Esia',19.504060409155173,-99.13695333206466,NULL,38,123.74),
+	 (40,60001,'Edif. 10 Esia',19.50385924720551,-99.13579638550081,NULL,39,328.01);
+INSERT INTO Chuchu.Stop (idStop,idRoute,name,lat,lon,iconB64,idNext,distanceTo) VALUES
+	 (41,60001,'Edif. 8 Esiqie',19.5024388299327,-99.1355593771078,NULL,40,157.38),
+	 (42,60001,'Edif. 6 Esiqie',19.5010988220785,-99.135795411471,NULL,41,130.66),
+	 (43,60001,'Edif. 4 Esime',19.499880164643,-99.1360368102304,NULL,42,153.78),
+	 (44,60001,'Edif. 2 Esime',19.498560162195,-99.1363197378838,NULL,43,83.14),
+	 (45,60001,'Edif. 1 Esime',19.4978416589043,-99.1364507294133,NULL,44,335.47),
+	 (46,60001,'Terminal Zacatenco',19.4953797626839,-99.1360002743384,NULL,45,142.0);
+
+-- CALL upsertStop(60001, N'El Queso', 19.4949401551899, -99.1349875800365, NULL);
+-- CALL upsertStop(60001, N'Oroya', 19.4949770293232, -99.1363467471817, N'El Queso');
+-- CALL upsertStop(60001, N'Huacho', 19.495667121671, -99.1395313924074, N'Oroya');
+-- CALL upsertStop(60001, N'Av. 45 Metros', 19.4961453076498, -99.1407199775522, N'Huacho');
+-- CALL upsertStop(60001, N'Fte. Centro de Formación Educativa', 19.4967571855356, -99.1421566028128, N'Av. 45 Metros');
+-- CALL upsertStop(60001, N'Via Ceti', 19.4976117865935, -99.1439697760968, N'Fte. Centro de Formación Educativa');
+-- CALL upsertStop(60001, N'Salvatierra', 19.4984335141151, -99.1459143775843, N'Via Ceti');
+-- CALL upsertStop(60001, N'Cda. Manuel Stampa', 19.4991367227318, -99.1467941810934, N'Salvatierra');
+-- CALL upsertStop(60001, N'Esc. Nacional de Ciencias Biológicas', 19.498705182378, -99.1455784559949, N'Cda. Manuel Stampa');
+-- CALL upsertStop(60001, N'Centro de Formación Educativa', 19.497007885578, -99.1418908960169, N'Esc. Nacional de Ciencias Biológicas');
+-- CALL upsertStop(60001, N'Planetario', 19.4962231086011, -99.14021630252, N'Centro de Formación Educativa');
+-- CALL upsertStop(60001, N'Cenlex', 19.4959885768089, -99.1392849095302, N'Planetario');
+-- CALL upsertStop(60001, N'Fte. Edif. 1 Esime', 19.4978560799053, -99.136714934243, N'Cenlex');
+-- CALL upsertStop(60001, N'Fte. Edif. 2 Esime', 19.4984609699412, -99.1365764743687, N'Fte. Edif. 1 Esime');
+-- CALL upsertStop(60001, N'Fte. Edif. 4 Esime', 19.499880164643, -99.1362567513563, N'Fte. Edif. 2 Esime');
+-- CALL upsertStop(60001, N'Fte. Edif. 6 Esiqie', 19.5011746723893, -99.1360689967739, N'Fte. Edif. 4 Esime');
+-- CALL upsertStop(60001, N'Fte. Edif. 8 Esiqie', 19.5024388299327, -99.1357685893982, N'Fte. Edif. 6 Esiqie');
+-- CALL upsertStop(60001, N'Manuel de Anda Y Barredo', 19.503582706565, -99.1359698702366, N'Fte. Edif. 8 Esiqie');
+-- CALL upsertStop(60001, N'Fte. Edif 11 Esia', 19.503738841312, -99.1371175635296, N'Manuel de Anda Y Barredo');
+-- CALL upsertStop(60001, N'Cancha de Entrenamiento Pieles Rojas', 19.5042114535381, -99.1394787715645, N'Fte. Edif 11 Esia');
+-- CALL upsertStop(60001, N'Fte. Central de Inteligencia de Cómputo', 19.5046859557844, -99.1422316747015, N'Cancha de Entrenamiento Pieles Rojas');
+-- CALL upsertStop(60001, N'R Ma. Luisa Stampa Orti;za', 19.5048635499717, -99.1432228422527, N'Fte. Central de Inteligencia de Cómputo');
+-- CALL upsertStop(60001, N'Escom', 19.505844504147, -99.1455457060247, N'R Ma. Luisa Stampa Orti;za');
+-- CALL upsertStop(60001, N'Av. Miguel Othón de Mendizábal Ote. - Av. Juan de Dios Bátiz', 19.5062512509023, -99.1472991018159, N'Escom');
+-- CALL upsertStop(60001, N'Av. Miguel Othón de Mendizábal Ote. - Neptuno', 19.5056587067313, -99.1488440389853, N'Av. Miguel Othón de Mendizábal Ote. - Av. Juan de Dios Bátiz');
+-- CALL upsertStop(60001, N'Eje Central Lázaro Cárdenas - Av. Miguel O. de Mendizábal Ote.', 19.5047177404643, -99.1502901918332, N'Av. Miguel Othón de Mendizábal Ote. - Neptuno');
+-- CALL upsertStop(60001, N'Eje Central Lázaro Cárdenas - Politécnico Oriente', 19.5002001691551, -99.148505917351, N'Eje Central Lázaro Cárdenas - Av. Miguel O. de Mendizábal Ote.');
+-- CALL upsertStop(60001, N'Eje Central Lázaro Cárdenas - Av. Wilfrido Massieu', 19.4990109740478, -99.1480355133274, N'Eje Central Lázaro Cárdenas - Politécnico Oriente');
+-- CALL upsertStop(60001, N'Eje Central Lázado Cárdenas - Cda. de Otavalo', 19.4953208100633, -99.1465665413194, N'Eje Central Lázaro Cárdenas - Av. Wilfrido Massieu');
+-- CALL upsertStop(60001, N'Montevideo', 19.4936406476243, -99.1466143724623, N'Eje Central Lázado Cárdenas - Cda. de Otavalo');
+-- CALL upsertStop(60001, N'Politécnico Poniente', 19.5005476092996, -99.1496036090908, N'Montevideo');
+-- CALL upsertStop(60001, N'Eje Central Lázaro Cárdenas - Av. Miguel. O. de Mendizábal Ote.', 19.5045199499282, -99.1511630776174, N'Politécnico Poniente');
+-- CALL upsertStop(60001, N'Juan de D. Batiz', 19.5064720056217, -99.1464826304588, N'Eje Central Lázaro Cárdenas - Av. Miguel. O. de Mendizábal Ote.');
+-- CALL upsertStop(60001, N'Fte. Escom', 19.5055628404822, -99.1450912693381, N'Juan de D. Batiz');
+-- CALL upsertStop(60001, N'Ma. Luisa Stampa Orti;za', 19.5051401619989, -99.1431909452342, N'Fte. Escom');
+-- CALL upsertStop(60001, N'Central de Inteligencia de Cómputo', 19.5049447296332, -99.1421383435297, N'Ma. Luisa Stampa Orti;za');
+-- CALL upsertStop(60001, N'Secretaria de Extensión Y Difusión', 19.5045688974968, -99.1397460670399, N'Central de Inteligencia de Cómputo');
+-- CALL upsertStop(60001, N'Biblioteca Esia', 19.50428927782, -99.1384159612606, N'Secretaria de Extensión Y Difusión');
+-- CALL upsertStop(60001, N'Edif 11 Esia', 19.5041297087128, -99.1369261814186, N'Biblioteca Esia');
+-- CALL upsertStop(60001, N'Edif. 10 Esia', 19.5039830239339, -99.1357729056504, N'Edif 11 Esia');
+-- CALL upsertStop(60001, N'Edif. 8 Esiqie', 19.5024388299327, -99.1355593771078, N'Edif. 10 Esia');
+-- CALL upsertStop(60001, N'Edif. 6 Esiqie', 19.5010988220785, -99.135795411471, N'Edif. 8 Esiqie');
+-- CALL upsertStop(60001, N'Edif. 4 Esime', 19.499880164643, -99.1360368102304, N'Edif. 6 Esiqie');
+-- CALL upsertStop(60001, N'Edif. 2 Esime', 19.498560162195, -99.1363197378838, N'Edif. 4 Esime');
+-- CALL upsertStop(60001, N'Edif. 1 Esime', 19.4978416589043, -99.1364507294133, N'Edif. 2 Esime');
+-- CALL upsertStop(60001, N'Terminal Zacatenco', 19.4953797626839, -99.1360002743384, N'Edif. 1 Esime');
 
 INSERT `Incident` VALUES (1, 60001, N'Muerte del conductor', 19.4953797626839, -99.1360002743384);
 INSERT `Driver_Incident` VALUES (1, 1, 10001);
