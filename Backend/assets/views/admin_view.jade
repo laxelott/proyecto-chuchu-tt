@@ -152,7 +152,7 @@ main.content
               tr
                 td= stop.idStop
                 td= stop.name
-                td= `${stop.coordX}, ${stop.coordY}`
+                td= `${stop.lon}, ${stop.lat}`
                 td 
                   button Delete
           tr
@@ -163,8 +163,8 @@ main.content
               button Delete       
       form#addStopForm
         input(type='text', name='name', placeholder='Stop Name')
-        input(type='number', step='any', name='coordX', placeholder='Coordinate X')
-        input(type='number', step='any', name='coordY', placeholder='Coordinate Y')
+        input(type='number', step='any', name='lon', placeholder='Coordinate X')
+        input(type='number', step='any', name='lat', placeholder='Coordinate Y')
         input(type='number', name='idRoute', placeholder='Route ID')
         input(type='file', name='iconB64', placeholder='Stop Icon')
         button(type='submit') Añadir Estacion
