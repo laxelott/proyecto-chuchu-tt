@@ -40,12 +40,12 @@ router.post('/getWaitTime/:routeId/:stopId', function(req, res, next) {
         .catch((err) => {res.send("ERROR: " + err)});
 })
 
-router.post('/getWaitTimeForDriver/:routeId/:stopId/:identifier', function(req, res, next) {
+router.post('/getWaitTimeForVehicle/:routeId/:stopId/:identifier', function(req, res, next) {
     let routeId = Number.parseFloat(req.params.routeId);
     let stopId = Number.parseFloat(req.params.stopId);
     let identifier = req.params.identifier;
 
-    LocationDAO.getWaitTimeForDriver(routeId, stopId, identifier)
+    LocationDAO.getWaitTimeForVehicle(routeId, stopId, identifier)
         .then((result) => {res.json(result)})
         .catch((err) => {res.send("ERROR: " + err)});
 })

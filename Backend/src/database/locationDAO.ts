@@ -37,9 +37,9 @@ export class LocationDAO {
         return results;
     }
 
-    static async getWaitTimeForDriver(routeId: number, stopId: number, identifier: string) {
+    static async getWaitTimeForVehicle(routeId: number, stopId: number, identifier: string) {
         const results: any = await SQLPool.query(
-            "CALL getWaitTimeForDriver(?,?,?)",
+            "CALL getWaitTimeForVehicle(?,?,?)",
             [routeId, stopId, identifier]
         );
 
