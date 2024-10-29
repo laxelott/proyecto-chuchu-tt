@@ -60,8 +60,9 @@ CREATE TABLE `Stop`(
     `idStop` int NOT NULL AUTO_INCREMENT,
     `idRoute` int NOT NULL,
     `name` varchar(255) NOT NULL,
-    `coordX` double NOT NULL,
-    `coordY` double NOT NULL,
+    `lat` double NOT NULL,
+    `lon` double NOT NULL,
+    `distanceTo` float NOT NULL DEFAULT 0,
     `iconB64` TEXT,
     `idNext` int,
     CONSTRAINT `PK_Stop` PRIMARY KEY (`idStop` ASC),
@@ -74,8 +75,8 @@ CREATE TABLE `Incident`(
     `idIncident` int NOT NULL AUTO_INCREMENT,
     `idRoute` int NOT NULL,
     `description` varchar(255) NOT NULL,
-    `coordX` double NOT NULL,
-    `coordY` double NOT NULL,
+    `lat` double NOT NULL,
+    `lon` double NOT NULL,
     CONSTRAINT `PK_Incident` PRIMARY KEY (`idIncident` ASC),
     CONSTRAINT `FK_Incident_Route` FOREIGN KEY (`idRoute`)
         REFERENCES `Route` (`idRoute`)
@@ -137,10 +138,25 @@ CREATE TABLE `Transport`(
 CREATE TABLE `Last_Location`(
     `idLocation` int NOT NULL AUTO_INCREMENT,
     `idVehicle` int NOT NULL,
-    `coordX` double NOT NULL,
-    `coordY` double NOT NULL,
+    `idLastStop` int NOT NULL,
+    `lat` double NOT NULL,
+    `lon` double NOT NULL,
     CONSTRAINT `PK_Last_Location` PRIMARY KEY (`idLocation` ASC),
     CONSTRAINT `FK_Last_Location_Vehicle` FOREIGN KEY (`idVehicle`)
+        REFERENCES `Vehicle` (`idVehicle`),
+    CONSTRAINT `FK_Last_Location_Stop` FOREIGN KEY (`idLastStop`)
+        REFERENCES `Stop` (`idStop`)
+);
+
+/****** Object:  Table `PK_VehicleData` ******/
+CREATE TABLE `VehicleData`(
+    `idVehicleSpeed` int NOT NULL AUTO_INCREMENT,
+    `idVehicle` int NOT NULL,
+    `direction` float NOT NULL,
+    `distanceToStop` float NOT NULL,
+    `avgSpeed` float NOT NULL,
+    CONSTRAINT `PK_VehicleData` PRIMARY KEY (`idVehicleSpeed` ASC),
+    CONSTRAINT `FK_VehicleData_Vehicle` FOREIGN KEY (`idVehicle`)
         REFERENCES `Vehicle` (`idVehicle`)
 );
 
@@ -167,8 +183,8 @@ CREATE TABLE `Vehicle_Route`(
 /****** Object:  Table `Waypoint` ******/
 CREATE TABLE `Waypoint`(
     `idWaypoint` int NOT NULL AUTO_INCREMENT,
-    `coordX` double NOT NULL,
-    `coordY` double NOT NULL,
+    `lon` double NOT NULL,
+    `lat` double NOT NULL,
     `idStop` int NOT NULL,
     CONSTRAINT `Waypoint` PRIMARY KEY (`idWaypoint` ASC),
     CONSTRAINT `FK_Waypoint_Stop` FOREIGN KEY (`idStop`)

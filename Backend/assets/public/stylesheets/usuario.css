@@ -1,0 +1,75 @@
+@import url("base.css");
+@import url("navbar.css");
+
+body {
+    section {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 3rem;
+        article.title-section {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-evenly;
+            background-color: var(--primary-background-color);
+            padding: 6.6rem;
+            div.titles {
+                h1 {
+                    font-size: 41rem;
+                    &.grey {
+                        color: var(--principal-text);
+                    }
+                    &.green {
+                        color: var(--principal-green);
+                    }
+                }
+                span {
+                    font-size: 1.2rem;
+                    color: var(--secondary-text);
+                }
+            }
+        }
+    }
+
+        /* Contenedor del carrusel para que abarque casi toda la pantalla */
+    .carousel {
+        position: relative;
+        width: 90%; /* Ajusta según el margen deseado */
+        max-width: 100%;
+        height: 95vh; /* Ocupa el 80% de la altura de la ventana */
+        margin: 20px auto;
+        overflow: hidden; /* Oculta cualquier parte de la imagen que se salga del contenedor */
+        border-radius: 10px; /* Opcional: redondea los bordes */
+    }
+    
+    /* Las imágenes ocupan toda el área del contenedor */
+    .carousel-item {
+        width: 100%;
+        height: 100%;
+        object-fit: cover; /* Escala la imagen sin distorsionarla */
+        display: none; /* Oculta las imágenes inactivas */
+    }
+    
+    /* Controles del carrusel */
+    .carousel-controls {
+        position: absolute;
+        bottom: 10px;
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+        padding: 0 20px;
+    }
+    
+    .carousel-prev,
+    .carousel-next {
+        background-color: rgba(0, 0, 0, 0.5); /* Fondo semitransparente */
+        color: white;
+        padding: 10px 20px;
+        border: none;
+        cursor: pointer;
+        font-size: 18px;
+        border-radius: 5px;
+    }
+    
+}

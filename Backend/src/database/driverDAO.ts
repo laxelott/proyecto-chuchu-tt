@@ -28,4 +28,13 @@ export class DriverDAO {
 
         return results[0];
     }
+
+    static async arrivedToStop(token: any, idStop: string) {
+        const results: any = (await SQLPool.query(
+            "CALL arrivedToStop(?)",
+            [token, idStop]
+        ));
+
+        return results[0];
+    }
 }

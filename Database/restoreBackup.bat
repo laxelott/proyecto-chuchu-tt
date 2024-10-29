@@ -1,4 +1,5 @@
 @echo off
-python combineFiles.py
-
-mysqlsh --user root --password --host localhost --file chuchu.sql
+echo Running...
+mysqlsh --user root --password --host localhost --file chuchu_database.sql
+mysqlsh --user root --password --host localhost --file chuchu_sproc.sql
+mysqlsh --user root --password --host localhost --file chuchu_data.sql
