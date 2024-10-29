@@ -9,6 +9,7 @@ import android.view.inputmethod.InputMethodManager
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.example.pasajero.databinding.ActivityMapsBinding
+import com.example.pasajeropackage.MarkerTag
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.model.LatLng
@@ -45,6 +46,11 @@ class BusStopAdapter(
             mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(busStop.latitude, busStop.longitude), 18f))
             // Buscar el marcador correspondiente y mostrar el InfoWindow
             val marker = findMarkerForBusStop(busStop)
+            if (marker != null) {
+                if (marker.tag is MarkerTag) {
+                    (marker.tag as MarkerTag).type = "busStop"
+                }
+            }
             marker?.showInfoWindow()
         }
     }

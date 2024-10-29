@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="../stylesheets/usuario.css">
+    <link rel="stylesheet" href="../public/stylesheets/usuario.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
@@ -41,7 +41,27 @@
                 <img src="../images/home.png" alt="Home image">
             </div>
         </article>
+        <div class="slider">
+            <article class="slider--inner">
+                <section class="slider-section">
+                    <img src="../public/images/home.png" alt="1">
+                </section>
+                <section class="slider-section">
+                    <img src="../public/images/mobile-screen.png" alt="1">
+                </section>
+                <section class="slider-section">
+                    <img src="../public/images/home.png" alt="1">
+                </section>
+            </article>
+            <div class="btn-left"><</div>
+            <div class="btn-right">></div>
+        </div>
     </section>
 </body>
+
+<script>
+    let sliderInner = document.querySelector(".slider-inner");
+    let index = 0;
+</script>
 
 </html>

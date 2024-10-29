@@ -59,4 +59,7 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
     implementation(libs.places)
     implementation (libs.android.maps.utils)
+    implementation (libs.androidx.vectordrawable)
+    implementation (libs.androidx.vectordrawable.animated)
+
 }

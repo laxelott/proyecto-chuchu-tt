@@ -1,28 +1,31 @@
 package com.example.pasajero
 
+import android.content.Context
 import android.content.Intent
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
+import android.graphics.drawable.Drawable
 import android.os.Bundle
+import android.util.Base64
 import android.util.Log
+import android.util.Xml
 import android.widget.ImageButton
 import android.widget.LinearLayout
-import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.vectordrawable.graphics.drawable.VectorDrawableCompat
 import com.example.pasajero.interfaces.ApiHelper
-import android.util.Base64
 import com.example.pasajero.interfaces.ApiService
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-
+import org.xmlpull.v1.XmlPullParser
+import java.io.ByteArrayInputStream
+import java.io.File
+import java.io.FileOutputStream
+import java.io.IOException
 
 class MainActivity : AppCompatActivity() {
 
-    //Variable for the Linear Layout
     private lateinit var linearLayout: LinearLayout
     private var myTransportInfo: List<TransportInfo> = listOf()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -39,7 +42,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun fetchTransportData(service: ApiService) {
         ApiHelper().getDataFromDB(
-            serviceCall = { service.postTransportList() }, // Pasamos la función que hace la solicitud
+            serviceCall = { service.postTransportList() }, // Pass the function that makes the request
             processResponse = { response ->
                 val transportInfo = response.body()
                 if (transportInfo != null) {
@@ -65,15 +68,52 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun loadVectorDrawableFromBase64(context: Context, base64String: String): Drawable? {
+        return try {
+            // Decodificar la cadena Base64
+            val decodedBytes = Base64.decode(base64String, Base64.DEFAULT)
+
+            // Crear un archivo temporal en el almacenamiento interno
+            val file = File(context.filesDir, "temp_vector.xml")
+            FileOutputStream(file).use { fos ->
+                fos.write(decodedBytes)
+            }
+
+            // Crear un XmlPullParser para leer el archivo
+            val inputStream = file.inputStream()
+            val parser: XmlPullParser = Xml.newPullParser()
+            parser.setInput(inputStream, null)
+
+            // Avanzar al primer tag que es <vector>
+            parser.next()
+
+            // Cargar el VectorDrawable desde el InputStream
+            val drawable = VectorDrawableCompat.createFromXml(context.resources, parser)
+
+            // Eliminar el archivo después de usarlo
+            file.delete()
+
+            drawable
+        } catch (e: Exception) {
+            Log.e("Transport response", "Error al cargar VectorDrawable desde Base64: ${e.message}", e)
+            null
+        }
+    }
+
+    // Método adaptado para crear el ImageButton con el ícono decodificado
     private fun createTransportButton(transport: TransportInfo): ImageButton {
         val imageButton = ImageButton(this)
 
-        /// Verificar si iconB64 no es nulo
+        // Verificar si el icono no es nulo o vacío
         if (transport.icon.isNotEmpty()) {
             try {
-                // Decodificar la imagen desde Base64
-                val bitmap: Bitmap? = decodeBase64ToBitmap(transport.icon)
-                imageButton.setImageBitmap(bitmap)
+                val drawable = loadVectorDrawableFromBase64(this, transport.icon)
+                drawable?.let {
+                    imageButton.setImageDrawable(it)
+                } ?: run {
+                    // Usar una imagen de fallback si no se pudo cargar el drawable
+                    imageButton.setBackgroundResource(R.drawable.trolebus)
+                }
             } catch (e: IllegalArgumentException) {
                 // Manejar errores de decodificación
                 Log.e("Transport response", "Error al decodificar imagen Base64: ${e.message}")
@@ -81,14 +121,16 @@ class MainActivity : AppCompatActivity() {
                 imageButton.setBackgroundResource(R.drawable.trolebus)
             }
         } else {
-            Log.d("Transport response", "No se recibió icono Base64. Usando imagen de fallback.")
-            // Usar una imagen de fallback si iconB64 está vacío
+            Log.d(" Transport response", "No se recibió icono Base64. Usando imagen de fallback.")
+            // Usar una imagen de fallback si el icono está vacío
             imageButton.setBackgroundResource(R.drawable.trolebus)
         }
-        val params = LinearLayout.LayoutParams(150,150)
+
+        // Configurar el tamaño del botón
+        val params = LinearLayout.LayoutParams(150, 150)
         imageButton.layoutParams = params
 
-        // Set click listener to button
+        // Establecer listener para el botón
         imageButton.setOnClickListener {
             val intent = Intent(this, SelectedTransportActivity::class.java)
             intent.putExtra("transportID", transport.id)
@@ -98,32 +140,4 @@ class MainActivity : AppCompatActivity() {
 
         return imageButton
     }
-
-
-    private fun decodeBase64ToBitmap(encodedImage: String): Bitmap? {
-        // Verifica que el string Base64 no sea nulo ni vacío
-        if (encodedImage.isNullOrEmpty()) {
-            Log.e("Transport response", "Base64 string is null or empty")
-            return null
-        }
-
-        // Decodifica la cadena Base64 a un arreglo de bytes
-        val decodedString: ByteArray
-        try {
-            decodedString = Base64.decode(encodedImage, Base64.DEFAULT)
-        } catch (e: IllegalArgumentException) {
-            Log.e("Transport response", "Failed to decode Base64 string: ${e.message}")
-            return null
-        }
-
-        // Decodifica el arreglo de bytes a un Bitmap
-        return try {
-            BitmapFactory.decodeByteArray(decodedString, 0, decodedString.size)
-        } catch (e: Exception) {
-            Log.e("Transport response", "Failed to decode byte array to Bitmap: ${e.message}")
-            null
-        }
-
-    }
-
 }

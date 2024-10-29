@@ -1,10 +1,9 @@
 package com.example.pasajero
 
-import com.google.android.gms.maps.model.LatLng
 import java.io.Serializable
 
 data class BusStop (
-    var id: Int,
+    var idStop: Int,
     var name: String,
     var latitude: Double,
     var longitude: Double,

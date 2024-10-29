@@ -4,7 +4,7 @@ package com.example.mapa.interfaces
 import com.example.mapa.BusStop
 import com.example.mapa.DriverInfo
 import com.example.mapa.GenericResponse
-import com.example.mapa.IncidentList
+import com.example.mapa.Incident
 import com.example.mapa.TokenRequest
 import retrofit2.Response
 import retrofit2.http.Body
@@ -40,9 +40,7 @@ interface ApiService {
     ): Response<Unit>
 
     @POST("incidents/list/{idRoute}")
-    suspend fun getIncidentsList(@Path("idRoute") idRoute: Int): Response<List<IncidentList>>
-
-
+    suspend fun getIncidentsList(@Path("idRoute") idRoute: Int): Response<List<Incident>>
     data class IncidentRequest(
         val lat: Double,
         val lon: Double,
@@ -56,9 +54,10 @@ interface ApiService {
         @Body incidentRequest: IncidentRequest
     ): Response<List<GenericResponse>>
 
-    @POST("incidents/remove/{incidentId}/{idRoute}")//No tendria que ir igual lo de la ruta?
+    @POST("incidents/remove/{incidentId}")
     suspend fun deleteIncident(
-        @Path("indicentId") incidentId: Int,
-        @Path("idRoute") idRoute: Int
+        @Path("indicentId") incidentId: Int
     ): Response<Boolean>
+
+
 }

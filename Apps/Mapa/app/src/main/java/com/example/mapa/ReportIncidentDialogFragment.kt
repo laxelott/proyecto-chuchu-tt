@@ -60,7 +60,40 @@ class ReportIncidentDialogFragment(private val routeID: Int, private val lat: Do
     }
 
     private fun sendReportIncident(type: String) {
-        callApi(type)
+        val builder = AlertDialog.Builder(requireActivity())
+        builder.setTitle("Reportar incidencia")
+            when (type) {
+                "0" -> {
+                    builder.setMessage("¿Quieres reportar la incidencia 'Choque vehicular'?")
+                }
+                "1" -> {
+                    builder.setMessage("¿Quieres reportar la incidencia 'Tráfico'?")
+                }
+                "2" -> {
+                    builder.setMessage("¿Quieres reportar la incidencia 'Embotellamiento'?")
+                }
+                "3" -> {
+                    builder.setMessage("¿Quieres reportar la incidencia 'Cierre vial'?")
+                }
+                "4" -> {
+                    builder.setMessage("¿Quieres reportar la incidencia 'Manifestación'?")
+                }
+                "5" -> {
+                    builder.setMessage("¿Quieres reportar la incidencia 'Otro'?")
+                }
+                else -> {
+                    builder.setMessage("Tipo de incidencia desconocido.")
+                }
+            }
+            .setPositiveButton("Si") { dialog, _ ->
+                callApi(type)
+                dialog.dismiss()
+            }
+            .setNegativeButton("No") { dialog, _ ->
+                dialog.dismiss()
+            }
+        builder.create().show()
+
     }
 
     private fun callApi(type: String) {

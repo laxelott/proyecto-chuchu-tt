@@ -2,9 +2,12 @@ package com.example.mapa
 
 import android.app.Dialog
 import android.os.Bundle
+import android.view.View
 import android.widget.LinearLayout
 import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.DialogFragment
+import com.google.android.gms.maps.CameraUpdateFactory
+import com.google.android.gms.maps.model.CameraPosition
 import kotlinx.coroutines.Job
 
 class EndTravelDialogFragment(private val sendingDataJob: Job?, private val gettingIncidentsJob: Job?) : DialogFragment() {
@@ -47,9 +50,19 @@ class EndTravelDialogFragment(private val sendingDataJob: Job?, private val gett
     }
 
     private fun endTravel() {
-        stopSendingDataPeriodically()
-        dismiss()
-        requireActivity().finish()
+        val builder = AlertDialog.Builder(requireActivity())
+        builder.setTitle("Finalizar viaje")
+            .setMessage("¿Quieres finalizar tu viaje?")
+            .setPositiveButton("Si") { dialog, _ ->
+                stopSendingDataPeriodically()
+                dismiss()
+                requireActivity().finish()
+                dialog.dismiss()
+            }
+            .setNegativeButton("No") { dialog, _ ->
+                dialog.dismiss()
+            }
+        builder.create().show()
     }
 
     private fun stopSendingDataPeriodically() {

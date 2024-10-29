@@ -21,11 +21,11 @@
 
     <Button
         android:id="@+id/tv_button"
-        android:layout_marginStart="20dp"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:drawableLeft="@drawable/start"
-        android:text="Iniciar"
+        android:drawableLeft="@drawable/cancel"
+        android:layout_marginStart="20dp"
+        android:text="Eliminar"
         android:visibility="gone"
         android:backgroundTint="@color/pink"
         android:textSize="14sp" />
