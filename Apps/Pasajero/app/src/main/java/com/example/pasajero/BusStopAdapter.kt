@@ -49,6 +49,8 @@ class BusStopAdapter(
             if (marker != null) {
                 if (marker.tag is MarkerTag) {
                     (marker.tag as MarkerTag).type = "busStop"
+                    (marker.tag as MarkerTag).mode = InfoMode.TARGETED
+
                 }
             }
             marker?.showInfoWindow()

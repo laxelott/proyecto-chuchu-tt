@@ -376,7 +376,7 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
                         ), LatLng(busStopDestination.latitude, busStopDestination.longitude)
                     )
                     hideProgressBar()
-                    hasArrived = updateTravelInfo(busStopDestination, currentDistance, duration)
+
 
                     if (alertFinalDestinationShown && hasArrived) {
                         endTravel()

@@ -15,7 +15,6 @@ import com.google.android.gms.maps.model.Marker
 class StartTravelFragment : Fragment(), InfoFragmentInterface {
 
     private lateinit var startButton: Button
-    private var busStopOrigin: BusStop? = null
     private var driverIdentifier: String = "";
     private var busStop: BusStop? = null
 
@@ -27,7 +26,9 @@ class StartTravelFragment : Fragment(), InfoFragmentInterface {
         startButton = view.findViewById(R.id.start_travel_button)
 
         startButton.setOnClickListener {
-            busStopOrigin?.let {
+            Log.d("Debug", "Click on the button")
+            Log.d("Debug", "Bus Stop: ${busStop?.name}")
+            busStop?.let {
                 // Call the function in the Activity to start the travel
                 (activity as? MapsActivity)?.onStartTravelClicked(driverIdentifier)
             }
@@ -35,7 +36,7 @@ class StartTravelFragment : Fragment(), InfoFragmentInterface {
         return view
     }
 
-    fun setBusStop(newBusStop: BusStop, ) {
+    fun setBusStop(newBusStop: BusStop ) {
         busStop = newBusStop 
     }
 
