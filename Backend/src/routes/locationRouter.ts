@@ -18,6 +18,11 @@ router.post('/reportLocation/:lat/:lon', function(req, res, next) {
     let token: string = req.body.token;
     let speed: number = req.body.speed;
 
+    console.log("---------");
+    console.log("ReportLocation");
+    console.log(req.body);
+    console.log(req.params);
+
     LocationDAO.reportLocation(lat, lon, token, speed)
         .then((result) => {res.json(result)})
         .catch((err) => {res.send("ERROR: " + err)});

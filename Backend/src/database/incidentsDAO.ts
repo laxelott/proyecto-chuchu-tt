@@ -11,6 +11,7 @@ export class IncidentsDAO {
     }
 
     static async addIncident(incidentType: Number, routeId: Number, lon: any, lat: any, token: string, description: string) {
+
         const results: any = await SQLPool.query(
             "CALL addIncident(?,?,?,?,?,?)",
             [incidentType, routeId, lon, lat, token, description]
