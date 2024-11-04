@@ -8,6 +8,34 @@ html(lang='en')
     link(rel='preconnect', href='https://fonts.gstatic.com', crossorigin)
     link(href='https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap', rel='stylesheet')
     title Conductor
+     // Script para el carrusel en el encabezado
+    script.
+      document.addEventListener('DOMContentLoaded', function() {
+        let index = 0;
+        const items = document.querySelectorAll('.carousel-item');
+        const totalItems = items.length;
+
+        // Mostrar solo la imagen actual
+        function showItem(i) {
+          items.forEach((item, idx) => {
+            item.style.display = idx === i ? 'block' : 'none';
+          });
+        }
+
+        // Control de siguiente y previo
+        document.querySelector('.carousel-next').addEventListener('click', () => {
+          index = (index + 1) % totalItems;
+          showItem(index);
+        });
+
+        document.querySelector('.carousel-prev').addEventListener('click', () => {
+          index = (index - 1 + totalItems) % totalItems;
+          showItem(index);
+        });
+
+        // Mostrar la primera imagen al cargar
+        showItem(index);
+      });
   body
     header
       .logo
@@ -35,3 +63,16 @@ html(lang='en')
             |                     usuario conductor
         div
           img(src='../images/home.png', alt='Home image')
+      // Carrusel de imágenes
+      .carousel
+        .carousel-container
+          img.carousel-item(src='../images/step_1.jpg', alt='Paso 1')
+          img.carousel-item(src='../images/step_2.jpg', alt='Paso 2')
+          img.carousel-item(src='../images/step_3.jpg', alt='Paso 3')
+          img.carousel-item(src='../images/step_4.jpg', alt='Paso 4')
+          img.carousel-item(src='../images/step_5.jpg', alt='Paso 5')
+          
+        // Controles del carrusel
+        .carousel-controls
+          button.carousel-prev Prev
+          button.carousel-next Next

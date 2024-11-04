@@ -182,7 +182,7 @@ class TransportInformationActivity : AppCompatActivity() {
         titleTransportRoute.text = allInfo[0].routeName
 
 
-        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, options)
+        val adapter = ArrayAdapter(this, R.layout.custom_spinner, options)
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         spinnerBusOptions.adapter = adapter
         btnStart.isEnabled = false

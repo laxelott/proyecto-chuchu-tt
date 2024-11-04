@@ -15,74 +15,13 @@
         android:layout_height="match_parent"
         tools:context=".MapaActivity" />
 
-
-    <LinearLayout
-        android:id="@+id/traveling_container"
+    <FrameLayout
+        android:id="@+id/info_fragment_container"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_alignParentBottom="true"
-        android:background="@drawable/shape"
-        android:gravity="center"
-        android:orientation="vertical"
-        android:paddingVertical="10dp"
-        android:visibility="gone">
-
-        <TextView
-            android:id="@+id/traveling"
-            android:gravity="center"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:fontFamily="@font/poppins"
-            android:textColor="@color/white"
-            android:text="Siguiente estación"
-            android:textSize="12sp" />
-
-        <TextView
-            android:id="@+id/traveling_container_title"
-            android:gravity="center"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textColor="@color/white"
-            android:fontFamily="@font/poppins_semibold"
-            android:textSize="16sp" />
-
-        <TextView
-            android:id="@+id/traveling_time"
-            android:gravity="center"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:fontFamily="@font/poppins"
-            android:textColor="@color/white"
-            android:text="Tiempo aprox"
-            android:textSize="12sp" />
-
-        <TextView
-            android:id="@+id/traveling_container_timer"
-            android:gravity="center"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textColor="@color/white"
-            android:fontFamily="@font/poppins_semibold"
-            android:textSize="16sp" />
-
-        <TextView
-            android:id="@+id/traveling_total_time"
-            android:gravity="center"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:fontFamily="@font/poppins"
-            android:text="Tiempo total aprox"
-            android:textColor="@color/white"
-            android:textSize="12sp" />
-
-        <TextView
-            android:id="@+id/traveling_container_total_time"
-            android:gravity="center"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:fontFamily="@font/poppins_semibold"
-            android:textSize="16sp" />
-    </LinearLayout>
+        android:visibility="visible"
+        android:layout_alignParentBottom="true">
+    </FrameLayout>
 
     <LinearLayout
         android:id="@+id/ownBackground"
@@ -92,7 +31,6 @@
         android:elevation="20dp"
         android:orientation="horizontal"
         android:visibility="gone">
-
     </LinearLayout>
 
     <ProgressBar

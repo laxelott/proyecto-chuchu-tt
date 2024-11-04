@@ -27,6 +27,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.example.mapa.databinding.ActivityMapaTransporteBinding
 import com.example.mapa.interfaces.ApiService
+import com.example.mapa.interfaces.CustomInfoWindowAdapter
 import com.example.pasajero.interfaces.ApiHelper
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
@@ -101,7 +102,7 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
     private var vehicleIdentifier: String = ""
     private var sendingDataJob: Job? = null
     private var gettingIncidentsJob: Job? = null
-    private val incidentsMarkers = mutableMapOf<String, Marker>()
+    private var incidentsMarkers = mutableMapOf<Incident, Marker>()
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -375,7 +376,7 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
                         ), LatLng(busStopDestination.latitude, busStopDestination.longitude)
                     )
                     hideProgressBar()
-                    hasArrived = updateTravelInfo(busStopDestination, currentDistance, duration)
+
 
                     if (alertFinalDestinationShown && hasArrived) {
                         endTravel()
@@ -401,6 +402,7 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
                     when (responseBody.error) {
                         0 -> {
                         }
+
                         1 -> {
                             val builder = AlertDialog.Builder(this)
                             builder.setTitle("¡Error!")
@@ -421,8 +423,6 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
 
 
     private fun endTravel() {
-        val container = findViewById<LinearLayout>(R.id.traveling_container)
-        container.visibility = View.GONE
         sendingDataJob?.cancel()
         gettingIncidentsJob?.cancel()
         leaveVehicle()
@@ -492,28 +492,6 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
             results
         )
         return results[0]
-    }
-
-    @SuppressLint("SetTextI18n")
-    private fun updateTravelInfo(
-        busStopDestination: BusStop,
-        currentDistance: Float,
-        duration: String
-    ): Boolean {
-        val title = findViewById<TextView>(R.id.traveling_container_title)
-        val showStop = findViewById<TextView>(R.id.traveling)
-        val timer = findViewById<TextView>(R.id.traveling_container_timer)
-
-        return if (currentDistance < 10f) {
-            showStop.text = "Estás en"
-            title.text = busStopDestination.name
-            true
-        } else {
-            showStop.text = "Siguiente estación"
-            title.text = busStopDestination.name
-            timer.text = duration
-            false
-        }
     }
 
 
@@ -697,57 +675,107 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun startGettingIncidents() {
+        if (!::coroutineScope.isInitialized) {
+            coroutineScope = CoroutineScope(Dispatchers.Main + Job())
+        }
+
         gettingIncidentsJob?.cancel()
         gettingIncidentsJob = coroutineScope.launch {
             while (true) {
                 withContext(Dispatchers.IO) {
-                    getIncidentsList(routeID)
+                    getIncidentsList(this@MapaActivity, routeID)
                 }
-                delay(5000)
+                delay(1000)
             }
         }
     }
 
-    private suspend fun getIncidentsList(routeID: Int) {
+    private fun getBitmapFromDrawable(context: Context, drawableId: Int): Bitmap? {
+        val drawable = ContextCompat.getDrawable(context, drawableId) ?: return null
+        val bitmap = Bitmap.createBitmap(
+            drawable.intrinsicWidth,
+            drawable.intrinsicHeight,
+            Bitmap.Config.ARGB_8888
+        )
+        val canvas = Canvas(bitmap)
+        drawable.setBounds(0, 0, canvas.width, canvas.height)
+        drawable.draw(canvas)
+        return bitmap
+    }
+
+    private suspend fun getIncidentsList(context: Context, routeID: Int) {
         val service = ApiHelper().prepareApi()
         ApiHelper().getDataFromDB(
             serviceCall = { service.getIncidentsList(routeID) },
             processResponse = { response ->
-                val incidents = response.body()
-                Log.d("Response", "$incidents")
-                if (incidents != null) {
-                    val currentLatLng = LatLng(currentLocation.latitude, currentLocation.longitude)
-                    for (incident in incidents) {
-                        Log.d("Response", "Creando marker para ${incident.incidentName}")
-                        val newPosition = LatLng(incident.lat, incident.lon)
-                        val existingMarker = incidentsMarkers[incident.incidentName]
-                        if (existingMarker != null) {
-                            existingMarker.position = newPosition
-
+                val incidentsList = response.body()
+                var newMarkers = mutableMapOf<Incident, Marker>()
+                incidentsList?.let {
+                    for (incident in it) {
+                        val existingMarker = incidentsMarkers.keys.any { existingIncident ->
+                            existingIncident.lat == incident.lat && existingIncident.lon == incident.lon
+                        }
+                        if (existingMarker) {
+                            if (incidentsMarkers.containsKey(incident)) {
+                                newMarkers[incident] = incidentsMarkers[incident]!!
+                            }
+                            incidentsMarkers.remove(incident)
                         } else {
-                            val marker = mMap.addMarker(
-                                MarkerOptions()
-                                    .position(newPosition)
+                            Log.d("API Response", "Datos recibidos correctamente")
+                            Log.d("API Response", "Creando marker para: ${incident.name}")
+                            Log.d(
+                                "API Response",
+                                "Latitude: ${incident.lat} Longitude: ${incident.lon}"
                             )
-                            marker?.let {
-                                it.tag = "driverLocation"
-                                incidentsMarkers[incident.incidentName] = it
+                            val location = LatLng(incident.lat, incident.lon)
+
+                            val bitmap = getBitmapFromDrawable(context, R.drawable.traffic_sign)
+                            if (bitmap == null) {
+                                Log.e(
+                                    "Bitmap Error",
+                                    "El bitmap es nulo, no se puede crear el marcador."
+                                )
+                            } else {
+                                Log.d("Bitmap Status", "Bitmap creado correctamente.")
+                                val resizedBitmap =
+                                    Bitmap.createScaledBitmap(bitmap, 150, 150, false)
+                                val markerIcon = BitmapDescriptorFactory.fromBitmap(resizedBitmap)
+
+                                // Agregar el marcador al mapa en el hilo principal
+                                val marker = mMap.addMarker(
+                                    MarkerOptions()
+                                        .position(location)
+                                        .title(incident.name)
+                                        .icon(markerIcon)
+                                )
+                                marker?.tag = "incident"
+
+                                if (marker != null) {
+                                    Log.d(
+                                        "Marker Creation",
+                                        "Marcador creado exitosamente: ${incident.name}"
+                                    )
+                                    newMarkers[incident] = marker
+                                } else {
+                                    Log.e(
+                                        "Marker Creation Error",
+                                        "No se pudo crear el marcador para: ${incident.name}"
+                                    )
+                                }
                             }
                         }
                     }
-                }
+                    clearMarkers()
+                    incidentsMarkers = newMarkers
+                } ?: Log.e("API Error", "La lista de incidentes es nula")
             }
         )
     }
 
-    private fun getMarkerIconFromDrawable(drawableId: Int): BitmapDescriptor {
-        val drawable = ContextCompat.getDrawable(this, drawableId)
-            ?: throw IllegalArgumentException("Drawable not found: $drawableId")
-        val bitmap = Bitmap.createBitmap(200, 200, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bitmap)
-        drawable.setBounds(0, 0, canvas.width, canvas.height)
-        drawable.draw(canvas)
-        return BitmapDescriptorFactory.fromBitmap(bitmap)
+    private fun clearMarkers() {
+        for ((incident, marker) in incidentsMarkers) {
+            marker.remove()
+        }
     }
 
     /**
@@ -767,6 +795,8 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
         setupLocationButton()
         setUpIncidentButton()
         setUpEndTravelButton()
+        setupInfoWindowAdapter()
+        setupMarkerClickListeners()
     }
 
     private fun setupMap() {
@@ -797,8 +827,68 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
         }
     }
 
+    @SuppressLint("PotentialBehaviorOverride")
+    private fun setupInfoWindowAdapter() {
+        val adapter = CustomInfoWindowAdapter(this)
+        mMap.setInfoWindowAdapter(adapter)
+    }
+
+    @SuppressLint("PotentialBehaviorOverride")
+    private fun setupMarkerClickListeners() {
+        mMap.setOnMarkerClickListener { marker ->
+            mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(marker.position, 18f))
+            marker.showInfoWindow()
+            true
+        }
+
+        mMap.setOnInfoWindowClickListener { marker ->
+            if (marker.tag == "incident") {
+                val incident = incidentsMarkers.entries.find { it.value == marker }?.key
+                incident?.let {
+                    CoroutineScope(Dispatchers.IO).launch {
+                        removeIncident(it)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun removeIncident (incident: Incident) {
+        val service = ApiHelper().prepareApi()
+        ApiHelper().getDataFromDB(
+            serviceCall = { service.deleteIncident(incident.id) },
+            processResponse = { response ->
+                val incidentResponse = response.body()
+                if (incidentResponse != null){
+                    val builder = AlertDialog.Builder(this)
+                    builder.setTitle("Eliminar incidencia")
+                        .setMessage("¿Quieres la incidencia ${incident.name}?")
+                        .setPositiveButton("Si") { dialog, _ ->
+                            Toast.makeText(this,"Incidencia eliminada",Toast.LENGTH_SHORT).show()
+                            dialog.dismiss()
+                        }
+                        .setNegativeButton("No") { dialog, _ ->
+                            dialog.dismiss()
+                        }
+                    builder.create().show()
+
+
+                }
+                else {
+                    Toast.makeText(this,"Error al eliminar incidencia",Toast.LENGTH_SHORT).show()
+                }
+            }
+        )
+    }
+
+
     private fun showReportIncident() {
-        val dialogFragment = ReportIncidentDialogFragment(routeID, currentLocation.latitude, currentLocation.longitude, token)
+        val dialogFragment = ReportIncidentDialogFragment(
+            routeID,
+            currentLocation.latitude,
+            currentLocation.longitude,
+            token
+        )
         dialogFragment.show(supportFragmentManager, "reportIncident")
     }
 
