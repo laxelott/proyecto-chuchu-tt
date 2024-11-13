@@ -973,6 +973,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         Log.d("Debug", "Lista anterior: $busStopMarkers")
         clearMarkers("busStop")
         val busStopsOD = getBusStopsToTravel(busStopOrigin, marker, busStops)
+        Log.d("Debug", "ESTACIONES: $busStopsOD")
         createNewMarkers(busStopsOD)
         Log.d("Debug", "Lista actualizada: $busStopMarkers")
         marker.hideInfoWindow()
@@ -1038,7 +1039,6 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
                 busStopMarkers.forEach { (_, marker) ->
                     marker.remove()
                 }
-                busStopMarkers.clear()
             }
 
             "incident" -> {
@@ -1057,7 +1057,8 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun createNewMarkers(busStops: List<BusStop>) {
-        for (busStop in busStops) {
+        for ((i, busStop) in busStops.withIndex()) {
+            Log.d("Debug", "Creando marker para: ${busStop.name}")
             createMarker(busStop)
         }
     }
@@ -1099,6 +1100,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
         mMap.animateCamera(CameraUpdateFactory.newCameraPosition(cameraPosition))
         clearOldRoutes()
+        clearMarkers("busStop")
         createRoutes()
         endInfoJob()
         hasDrawnRoutes = false
@@ -1183,9 +1185,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun hideSearchBarAndShowDialog() {
-
         btnCancelTravel.visibility = View.VISIBLE
-
         btnCancelTravel.setOnClickListener {
             showAlertDialog()
         }
@@ -1197,7 +1197,6 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
             .setMessage("¿Quieres finalizar tu viaje?")
             .setPositiveButton("Si") { dialog, _ ->
                 endTravel()
-
                 dialog.dismiss()
 
             }
