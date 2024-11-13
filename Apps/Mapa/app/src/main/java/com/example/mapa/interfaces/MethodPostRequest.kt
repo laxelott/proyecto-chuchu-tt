@@ -5,6 +5,7 @@ import com.example.mapa.BusStop
 import com.example.mapa.DriverInfo
 import com.example.mapa.GenericResponse
 import com.example.mapa.Incident
+import com.example.mapa.InfoResponse
 import com.example.mapa.TokenRequest
 import retrofit2.Response
 import retrofit2.http.Body
@@ -26,17 +27,21 @@ interface ApiService {
         @Body token: TokenRequest
     ): Response<GenericResponse>
 
-    @POST("driver/useVehicle/")
+    @POST("driver/leaveVehicle/")
     suspend fun leaveVehicle(@Body token: TokenRequest): Response<GenericResponse>
 
     @POST("data/stop/list/{idRoute}")
     suspend fun getBusStopsInfo(@Path("idRoute") idRoute: Int): Response<List<BusStop>>
 
+    data class BodyDriver(
+        val token: String,
+        val speed: Int
+    )
     @POST("location/reportLocation/{latitude}/{longitude}")
     suspend fun postLatitudeLongitude(
         @Path("latitude") latitude: Double,
         @Path("longitude") longitude: Double,
-        @Body token: TokenRequest
+        @Body bodyDriver: BodyDriver,
     ): Response<Unit>
 
     @POST("incidents/list/{idRoute}")
@@ -56,8 +61,20 @@ interface ApiService {
 
     @POST("incidents/remove/{incidentId}")
     suspend fun deleteIncident(
-        @Path("indicentId") incidentId: Int
-    ): Response<Boolean>
+        @Path("incidentId") incidentId: Int,
+        @Body token: TokenRequest
+    ): Response<List<GenericResponse>>
 
+    @POST("location/getWaitTime/{idRoute}/{stopId}/")
+    suspend fun getWaitTime(@Path("idRoute") idRoute: Int, @Path("stopId") stopId: Int): Response<List<InfoResponse>>
+
+    data class CancelTrip (
+        val token: String,
+        val reason: String
+    )
+    @POST("driver/cancelTrip")
+    suspend fun deleteIncident(
+        @Body token: CancelTrip
+    ): Response<GenericResponse>
 
 }

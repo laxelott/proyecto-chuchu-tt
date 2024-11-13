@@ -15,7 +15,6 @@ import android.os.Looper
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.text.Editable
-import android.text.TextUtils.indexOf
 import android.text.TextWatcher
 import android.util.Log
 import android.view.View
@@ -23,7 +22,6 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
-import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.core.app.ActivityCompat
@@ -58,7 +56,6 @@ import com.google.android.gms.maps.model.Polyline
 import com.google.android.gms.maps.model.PolylineOptions
 import com.google.maps.android.PolyUtil
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -69,7 +66,6 @@ import retrofit2.Callback
 import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
-import kotlinx.coroutines.*
 
 class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
@@ -114,8 +110,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
     private var busStopsODGlobal: List<BusStop>? = null
     private var alertShown = false
     private var hasDrawnRoutes = false
-
-
+    private var alertErrorFlag = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -685,28 +680,28 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         var serviceCall: suspend () -> Response<List<InfoResponse>>
         serviceCall = when (infoWindowMode) {
             InfoMode.INACTIVE -> {
-                { -> service.getWaitTime(routeID, busStops[0].idStop) }
+                { -> service.getWaitTime(routeID, busStops[0].id) }
             }
 
             InfoMode.TARGETED -> {
                 { ->
                     service.getWaitTimeForVehicle(
                         routeID,
-                        findClosestBusStop(currentLocation).idStop,
+                        findClosestBusStop(currentLocation).id,
                         driverIdentifier
                     )
                 }
             }
 
             InfoMode.WAITING -> {
-                { -> service.getWaitTime(routeID, busStops[0].idStop) }
+                { -> service.getWaitTime(routeID, busStops[0].id) }
             }
 
             InfoMode.ON_ROUTE -> {
                 { ->
                     service.getWaitTimeForVehicle(
                         routeID,
-                        busStops.last().idStop,
+                        busStops.last().id,
                         driverIdentifier
                     )
                 }
@@ -728,16 +723,35 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
                 Log.d("Info", "Informacion del conductor recibida correctamente")
                 val info = waitTime[0]
                 if (info.error == 1) {
-                    // Show error dialog on the Main thread
-                    CoroutineScope(Dispatchers.Main).launch {
-                        AlertDialog.Builder(this@MapsActivity)
-                            .setTitle("¡Error!")
-                            .setMessage("IDs inválidas")
-                            .setNegativeButton("Cerrar", null)
-                            .show()
+                    if (!alertErrorFlag) {
+                        // Show error dialog on the Main thread
+                        CoroutineScope(Dispatchers.Main).launch {
+                            AlertDialog.Builder(this@MapsActivity)
+                                .setTitle("¡Error!")
+                                .setMessage("IDs inválidas")
+                                .setNegativeButton("Cerrar", null)
+                                .show()
+                        }
+                        alertErrorFlag = true
+                        return@getDataFromDB
                     }
-                    return@getDataFromDB
                 }
+
+                if (info.error == 3) {
+                    if (!alertErrorFlag) {
+                        // Show error dialog on the Main thread
+                        CoroutineScope(Dispatchers.Main).launch {
+                            AlertDialog.Builder(this@MapsActivity)
+                                .setTitle("¡Espera!")
+                                .setMessage("No hay vehículos en ruta")
+                                .setNegativeButton("Cerrar", null)
+                                .show()
+                        }
+                        alertErrorFlag = true
+                        return@getDataFromDB
+                    }
+                }
+
                 Log.d("Info", "Informacion: $info")
                 Log.d("Transport response", "Tiempos de conductor")
                 // Update the UI fragment on the Main thread
@@ -772,7 +786,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
                             if (infoFragment is StartTravelFragment) {
                                 val startTravelFragment = infoFragment
                                 startTravelFragment.setBusStop(busStops[0])
-                                if (info.totalDistance <= 50f) {
+                                if (info.totalDistance <= 20f) {
                                     startTravelFragment.enableStartButton()
                                 } else {
                                     startTravelFragment.disableStartButton()
@@ -910,7 +924,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
                 Log.d(
                     "Info",
-                    "estacion mas cercana ${closestBusStop.name}, ${closestBusStop.idStop}"
+                    "estacion mas cercana ${closestBusStop.name}, ${closestBusStop.id}"
                 )
                 busStopsToBeVisited(closestBusStop, marker, busStops)
 
@@ -1008,7 +1022,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
                 }
                 i = (i + 1) % busStops.size
                 Log.d("Waypoints", "$i")
-                Log.d("Waypoints", "${busStops[i].idStop}")
+                Log.d("Waypoints", "${busStops[i].id}")
                 Log.d("Waypoints", "$busStopLatLng")
                 Log.d("Waypoints", "${marker.position}")
                 Log.d("Waypoints", "--------------------")
@@ -1022,7 +1036,6 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         when (tipo) {
             "busStop" -> {
                 busStopMarkers.forEach { (_, marker) ->
-                    Log.d("Debug", "Limpiando marcador: ${marker.title}")
                     marker.remove()
                 }
                 busStopMarkers.clear()

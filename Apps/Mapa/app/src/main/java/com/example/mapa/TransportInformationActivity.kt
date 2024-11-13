@@ -219,6 +219,7 @@ class TransportInformationActivity : AppCompatActivity() {
     private fun useVehicle(token:String, vehicleIdentifier: String) {
         val service = ApiHelper().prepareApi()
         val tokenRequest = TokenRequest(token)
+        Log.d("Debug", "enviando vehiculo a utilizar: $vehicleIdentifier")
         ApiHelper().getDataFromDB(
             serviceCall = { service.postUseVehicle(vehicleIdentifier, tokenRequest) }, // Pasamos la función que hace la solicitud
             processResponse = { response ->

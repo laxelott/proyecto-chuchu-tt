@@ -114,12 +114,12 @@ class ReportIncidentDialogFragment(private val routeID: Int, private val lat: Do
                             listType
                         )
 
-                        Log.d("Transport response", "Se reportó la incidencia: $incidentReported")
+                        Log.d("Transport response", "Se reportó la incidencia")
 
                         // Procesar la respuesta basada en el primer elemento.
                         when (incidentReported.first().error) {
-                            0 -> showToast("Incidente reportado: $type")
-                            1 -> showToast("Tipo de incidente inválido: $type")
+                            0 -> showToast("Incidente reportado")
+                            1 -> showToast("Tipo de incidente inválido")
                             2 -> showToast("Token inválida")
                             else -> showToast("Error desconocido")
                         }

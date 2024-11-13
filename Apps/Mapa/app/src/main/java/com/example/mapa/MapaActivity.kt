@@ -16,6 +16,7 @@ import android.os.Vibrator
 import android.text.Html
 import android.util.Log
 import android.view.View
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
@@ -25,6 +26,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.fragment.app.Fragment
 import com.example.mapa.databinding.ActivityMapaTransporteBinding
 import com.example.mapa.interfaces.ApiService
 import com.example.mapa.interfaces.CustomInfoWindowAdapter
@@ -84,8 +86,12 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
         override fun onLocationResult(locationResult: LocationResult) {
             locationResult.locations.forEach { location ->
                 currentLocation = LatLng(location.latitude, location.longitude)
-                val speedInMetersPerSecond = location.speed
-                speed = (speedInMetersPerSecond).toInt()
+                speed = if (location.hasSpeed()) {
+                    val speedInMetersPerSecond = location.speed
+                    speedInMetersPerSecond.toInt()
+                } else {
+                    0
+                }
             }
         }
     }
@@ -102,7 +108,10 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
     private var vehicleIdentifier: String = ""
     private var sendingDataJob: Job? = null
     private var gettingIncidentsJob: Job? = null
+    private var gettingInfoJob: Job? = null
     private var incidentsMarkers = mutableMapOf<Incident, Marker>()
+    private var alertErrorFlag = false
+    private var busStopCounter:Int = 0
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -143,8 +152,8 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private fun updateCurrentLocation() {
         val locationRequest = LocationRequest.create().apply {
-            interval = 5000
-            fastestInterval = 2000
+            interval = 1000 // Cada segundo
+            fastestInterval = 500
             priority = LocationRequest.PRIORITY_HIGH_ACCURACY
         }
         if (isLocationPermissionGranted()) {
@@ -173,7 +182,7 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
                             LatLng(busStops[0].latitude, busStops[0].longitude)
                         )
                         Log.d("Distancia", "$distance")
-                        if (distance <= 10f) {
+                        if (distance <= 20f) {
                             setupMapMarkersAndRoutes()
                             CoroutineScope(Dispatchers.IO).launch {
                                 startTravel()
@@ -346,51 +355,93 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
             startSendingDataPeriodically()
             startGettingIncidents()
             showProgressBar()
-            val travelTimes = mutableMapOf<BusStop, Pair<String, String>>()
-            var currentStopIndex = 0
-            val destination = busStops[2]
-            var alertFinalDestinationShown = false
+            Log.d("Debug", "Identificador de vehiculo: $vehicleIdentifier")
+            getInfoJob(busStops, vehicleIdentifier)
+        }
+    }
 
-            while (currentStopIndex < busStops.size - 1) {
-                val busStopDestination = busStops[currentStopIndex + 1]
-                val busStopOrigin = busStops[currentStopIndex]
-
-                if (destination == busStopDestination) {
-                    alertUserForFinalDestination()
-                    alertFinalDestinationShown = true
-                }
-
-                val (distance, duration) = travelTimes[busStopDestination] ?: run {
-                    val (dist, dur) = getDistanceAndTime(busStopOrigin, busStopDestination).await()
-                    travelTimes[busStopDestination] = Pair(dist, dur)
-                    Pair(dist, dur)
-                }
-
-                var hasArrived = false
-                while (!hasArrived) {
-                    delay(5000)
-                    val currentDistance = calculateDistance(
-                        LatLng(
-                            currentLocation.latitude,
-                            currentLocation.longitude
-                        ), LatLng(busStopDestination.latitude, busStopDestination.longitude)
-                    )
-                    hideProgressBar()
-
-
-                    if (alertFinalDestinationShown && hasArrived) {
-                        endTravel()
-                    }
-                    if (hasArrived) {
-                        Log.e("Directions", "Llegaste a la parada: ${busStopDestination.name}")
-                        currentStopIndex++
-                    }
-                }
+    private suspend fun getInfoJob(busStops: List<BusStop>, driverIdentifier: String) {
+        if (!::coroutineScope.isInitialized) {
+            coroutineScope = CoroutineScope(Dispatchers.Main + Job())
+        }
+        val fragment: Fragment = InfoFragment()
+        supportFragmentManager.beginTransaction()
+            .replace(R.id.info_fragment_container, fragment)
+            .commit()
+        findViewById<FrameLayout>(R.id.info_fragment_container).visibility = View.VISIBLE
+        Log.d("Debug", "En get info job")
+        // Cancel any existing job before starting a new one.
+        gettingInfoJob?.cancel()
+        gettingInfoJob = coroutineScope.launch {
+            while (true) {
+                getInfo(busStops, driverIdentifier)
+                delay(1000)
             }
         }
     }
 
-    private fun leaveVehicle() {
+    private suspend fun getInfo(busStops: List<BusStop>, driverIdentifier: String) {
+
+        val service = withContext(Dispatchers.IO) {
+            ApiHelper().prepareApi()
+        }
+        Log.d("Debug", "Solicitud de los tiempos del vehiculo")
+        ApiHelper().getDataFromDB(
+            serviceCall = {
+                service.getWaitTime(
+                    routeID,
+                    busStops[busStopCounter].id,
+                )
+            },
+            processResponse = { response ->
+                val waitTime = response.body()
+                if (waitTime == null) {
+                    Log.d("Info", "Error en la respuesta para la informacion del conductor")
+                    return@getDataFromDB
+                }
+
+                Log.d("Info", "Informacion del conductor recibida correctamente")
+                val info = waitTime[0]
+                if (info.error == 1) {
+                    if (!alertErrorFlag) {
+                        // Show error dialog on the Main thread
+                        CoroutineScope(Dispatchers.Main).launch {
+                            AlertDialog.Builder(this@MapaActivity)
+                                .setTitle("¡Error!")
+                                .setMessage("IDs inválidas")
+                                .setNegativeButton("Cerrar", null)
+                                .show()
+                        }
+                        alertErrorFlag = true
+                        return@getDataFromDB
+                    }
+                }
+                Log.d("Info", "Informacion: $info")
+                Log.d("Transport response", "Tiempos de conductor")
+                // Update the UI fragment on the Main thread
+                CoroutineScope(Dispatchers.Main).launch {
+                    Log.d("debug", progressBar.toString())
+                    hideProgressBar()
+
+                    var infoFragment: Fragment? =
+                        supportFragmentManager.findFragmentById(R.id.info_fragment_container)
+                    if (infoFragment is InfoFragment) {
+                        val startTravelFragment = infoFragment
+                        startTravelFragment.updateData(info)
+                        if(info.nextName == busStops[busStopCounter].name && info.nextDistance < 10f){
+                            endTravel()
+                        }
+                        if (info.nextDistance < 10f){
+                            busStopCounter += 1
+                        }
+                    }
+                }
+            }
+        )
+    }
+
+
+    fun leaveVehicle() {
         val service = ApiHelper().prepareApi()
         val tokenRequest = TokenRequest(token)
         ApiHelper().getDataFromDB(
@@ -425,6 +476,7 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
     private fun endTravel() {
         sendingDataJob?.cancel()
         gettingIncidentsJob?.cancel()
+        gettingInfoJob?.cancel()
         leaveVehicle()
 
         val cameraPosition = CameraPosition.Builder()
@@ -497,51 +549,6 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private fun latLangToStr(latLng: LatLng) = "${latLng.latitude},${latLng.longitude}"
 
-    private fun getDistanceAndTime(
-        origin: BusStop,
-        destination: BusStop
-    ): Deferred<Pair<String, String>> {
-        val apiKey = getString(R.string.api_key)
-        val waypointsStr = destination.waypoints ?: ""
-        val originLocation = latLangToStr(LatLng(origin.latitude, origin.longitude))
-        val destinationLocation = latLangToStr(LatLng(destination.latitude, destination.longitude))
-
-        val deferredResult = CompletableDeferred<Pair<String, String>>()
-
-        val call = directionsAPI.getDirections(
-            originLocation,
-            destinationLocation,
-            apiKey,
-            "driving",
-            waypoints = waypointsStr
-        )
-
-        call.enqueue(object : Callback<DirectionsResponse> {
-            override fun onResponse(
-                call: Call<DirectionsResponse>,
-                response: Response<DirectionsResponse>
-            ) {
-                if (response.isSuccessful) {
-                    val directionsResponse = response.body()
-                    val leg = directionsResponse?.routes?.get(0)?.legs?.get(0)
-
-                    val distance = leg?.distance?.text ?: "Unknown distance"
-                    val duration = leg?.duration?.text ?: "Unknown duration"
-
-                    deferredResult.complete(Pair(distance, duration))
-                } else {
-                    deferredResult.completeExceptionally(Exception("Error: ${response.code()} - ${response.message()}"))
-                }
-            }
-
-            override fun onFailure(call: Call<DirectionsResponse>, t: Throwable) {
-                Log.e("DirectionsError", "Failed to get route: ${t.message}")
-                deferredResult.completeExceptionally(t)
-            }
-        })
-
-        return deferredResult
-    }
 
     private fun getDirectionsAndShowOnMap(origin: BusStop, destination: BusStop) {
         val apiKey = getString(R.string.api_key)
@@ -657,16 +664,17 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private suspend fun sendLatitudeLongitude(latitude: Double, longitude: Double) {
         try {
+            val bodyDriver = ApiService.BodyDriver(token, speed)
+            Log.d("Debug","Token para enviar la ubicacion: ")
             val tokenRequest = TokenRequest(token)
-            Log.d("Transport My Location", "$latitude, $longitude")
             val response =
-                ApiHelper().prepareApi().postLatitudeLongitude(latitude, longitude, tokenRequest)
+                ApiHelper().prepareApi().postLatitudeLongitude(latitude, longitude, bodyDriver)
             if (response.isSuccessful) {
-                Log.d("API Response", "Datos enviados correctamente")
+                Log.d("API Response", "Ubicacion enviada")
             } else {
                 Log.e(
                     "API Error",
-                    "Error al enviar datos: ${response.code()} ${response.message()}"
+                    "Error al enviar ubicacion: ${response.code()} ${response.message()}"
                 )
             }
         } catch (e: Exception) {
@@ -721,7 +729,7 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
                             }
                             incidentsMarkers.remove(incident)
                         } else {
-                            Log.d("API Response", "Datos recibidos correctamente")
+                            Log.d("API Response", "Incidencias recibidas")
                             Log.d("API Response", "Creando marker para: ${incident.name}")
                             Log.d(
                                 "API Response",
@@ -738,7 +746,7 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
                             } else {
                                 Log.d("Bitmap Status", "Bitmap creado correctamente.")
                                 val resizedBitmap =
-                                    Bitmap.createScaledBitmap(bitmap, 150, 150, false)
+                                    Bitmap.createScaledBitmap(bitmap, 200, 200, false)
                                 val markerIcon = BitmapDescriptorFactory.fromBitmap(resizedBitmap)
 
                                 // Agregar el marcador al mapa en el hilo principal
@@ -811,7 +819,7 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private fun setupLocationButton() {
         btnLocation.setOnClickListener {
-            mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLocation, 16f))
+            mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLocation, 18f))
         }
     }
 
@@ -853,33 +861,36 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
         }
     }
 
-    private fun removeIncident (incident: Incident) {
-        val service = ApiHelper().prepareApi()
-        ApiHelper().getDataFromDB(
-            serviceCall = { service.deleteIncident(incident.id) },
-            processResponse = { response ->
-                val incidentResponse = response.body()
-                if (incidentResponse != null){
-                    val builder = AlertDialog.Builder(this)
-                    builder.setTitle("Eliminar incidencia")
-                        .setMessage("¿Quieres la incidencia ${incident.name}?")
-                        .setPositiveButton("Si") { dialog, _ ->
-                            Toast.makeText(this,"Incidencia eliminada",Toast.LENGTH_SHORT).show()
-                            dialog.dismiss()
+    private fun removeIncident(incident: Incident) {
+        val tokenRequest = TokenRequest(token)
+        runOnUiThread {
+            val builder = AlertDialog.Builder(this)
+            builder.setTitle("Eliminar incidencia")
+                .setMessage("¿Quieres eliminar la incidencia ${incident.name}?")
+                .setPositiveButton("Si") { dialog, _ ->
+                    val service = ApiHelper().prepareApi()
+                    ApiHelper().getDataFromDB(
+                        serviceCall = { service.deleteIncident(incident.id, tokenRequest) },
+                        processResponse = { response ->
+                            val incidentResponse = response.body()
+                            runOnUiThread {
+                                if (incidentResponse != null) {
+                                    Toast.makeText(this, "Incidencia eliminada", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    Toast.makeText(this, "Error al eliminar incidencia", Toast.LENGTH_SHORT).show()
+                                }
+                            }
                         }
-                        .setNegativeButton("No") { dialog, _ ->
-                            dialog.dismiss()
-                        }
-                    builder.create().show()
-
-
+                    )
+                    dialog.dismiss()
                 }
-                else {
-                    Toast.makeText(this,"Error al eliminar incidencia",Toast.LENGTH_SHORT).show()
+                .setNegativeButton("No") { dialog, _ ->
+                    dialog.dismiss()
                 }
-            }
-        )
+            builder.create().show()
+        }
     }
+
 
 
     private fun showReportIncident() {
@@ -893,7 +904,7 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun showEndTravelWindow() {
-        val dialogFragment = EndTravelDialogFragment(sendingDataJob, gettingIncidentsJob)
+        val dialogFragment = EndTravelDialogFragment(sendingDataJob, gettingIncidentsJob, gettingInfoJob, token)
         dialogFragment.show(supportFragmentManager, "endTravelDialog")
     }
 
@@ -912,7 +923,7 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
                 if (location != null) {
                     lastLocation = location
                     currentLocation = LatLng(location.latitude, location.longitude)
-                    mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLocation, 16f))
+                    mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLocation, 18f))
                 }
             }
         } else {

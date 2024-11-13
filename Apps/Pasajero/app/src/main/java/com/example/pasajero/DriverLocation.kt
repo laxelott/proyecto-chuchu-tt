@@ -4,7 +4,7 @@ data class DriverLocation (
     val identifier: String,
     val lon: Double,
     val lat: Double,
-    val direction: Float
+    val direction: Float,
 ) {
     override fun equals(other: Any?): Boolean {
         return (other is DriverLocation) && identifier == other.identifier
