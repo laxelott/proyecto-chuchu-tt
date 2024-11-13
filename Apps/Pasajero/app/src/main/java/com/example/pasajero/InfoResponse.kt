@@ -1,6 +1,7 @@
 package com.example.pasajero
 
-data class InfoResponse (
+data class
+InfoResponse (
     val error: Int,
     val identifier: String,
     val nextName: String,

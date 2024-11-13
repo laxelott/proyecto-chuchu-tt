@@ -73,13 +73,16 @@ CREATE TABLE `Stop`(
 /****** Object:  Table `Incident` ******/
 CREATE TABLE `Incident`(
     `idIncident` int NOT NULL AUTO_INCREMENT,
+    `idIncidentType` int NOT NULL,
     `idRoute` int NOT NULL,
     `description` varchar(255) NOT NULL,
     `lat` double NOT NULL,
     `lon` double NOT NULL,
     CONSTRAINT `PK_Incident` PRIMARY KEY (`idIncident` ASC),
     CONSTRAINT `FK_Incident_Route` FOREIGN KEY (`idRoute`)
-        REFERENCES `Route` (`idRoute`)
+        REFERENCES `Route` (`idRoute`),
+    CONSTRAINT `FK_Incident_IncidentType` FOREIGN KEY (`idIncidentType`)
+        REFERENCES `IncidentType` (`idIncidentType`)
 );
 
 /****** Object:  Table `IncidentType` ******/
@@ -87,18 +90,6 @@ CREATE TABLE `IncidentType`(
     `idIncidentType` int NOT NULL AUTO_INCREMENT,
     `name` varchar(255) NOT NULL,
     CONSTRAINT `PK_IncidentType` PRIMARY KEY (`idIncidentType` ASC)
-);
-
-/****** Object:  Table `Incident_IncidentType` ******/
-CREATE TABLE `Incident_IncidentType`(
-    `idIncident_IncidentType` int NOT NULL AUTO_INCREMENT,
-    `idIncident` int NOT NULL,
-    `idIncidentType` int NOT NULL,
-    CONSTRAINT `PK_Incident_IncidentType` PRIMARY KEY (`idIncident_IncidentType` ASC),
-    CONSTRAINT `FK_Incident_IncidentType_Incident` FOREIGN KEY (`idIncident`)
-        REFERENCES `Incident` (`idIncident`),
-    CONSTRAINT `FK_Incident_IncidentType_IncidentType` FOREIGN KEY (`idIncidentType`)
-        REFERENCES `IncidentType` (`idIncidentType`)
 );
 
 /****** Object:  Table `Driver_Incident` ******/
@@ -189,6 +180,18 @@ CREATE TABLE `Waypoint`(
     CONSTRAINT `Waypoint` PRIMARY KEY (`idWaypoint` ASC),
     CONSTRAINT `FK_Waypoint_Stop` FOREIGN KEY (`idStop`)
         REFERENCES `Stop` (`idStop`)
+);
+
+/****** Object:  Table `CancelReason` ******/
+CREATE TABLE `CancelReason`(
+    `idCancelReason` int NOT NULL AUTO_INCREMENT,
+    `idDriver` int NOT NULL,
+    `time` DATETIME NOT NULL,
+    `reason` varchar(200) NOT NULL,
+    CONSTRAINT `CancelReason` PRIMARY KEY (`idCancelReason` ASC),
+    CONSTRAINT `FK_CancelReason_Driver` FOREIGN KEY (`idDriver`)
+        REFERENCES `Driver` (`idDriver`)
+
 );
 
 

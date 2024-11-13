@@ -94,9 +94,9 @@ main.content
                   button Delete
 
       form#addTransportForm
-        input(type='text', name='name', placeholder='Transport Name')
-        input(type='file', name='iconB64', placeholder='Transport Icon')
-        button(type='submit') Add Transport
+        input(type='text', name='name', placeholder='Nombre Transporte')
+        input(type='file', name='iconB64', placeholder='Icono Transporte')
+        button(type='submit') Añadir Transporte
 
       // Routes Table
   section#routes
@@ -104,9 +104,10 @@ main.content
       table#routesTable
         thead
           tr
-            th ID
-            th Name
-            th Description
+            th ID Ruta
+            th ID Transporte
+            th Nombre de la ruta
+            th Descripcion
             th Color
             th Icon
             th Borrar
@@ -122,30 +123,36 @@ main.content
                     button Delete
           tr
             th 1
-            th Example Route
-            th Example Description
-            th Red
-            th (icon here)
+            th 3
+            th Linea 8
+            th CircuitoPolitc
+            th FF2B78E4
+            //th (icon here)
               th 
                   button Delete
 
       form#addRouteForm
-        input(type='text', name='name', placeholder='Route Name')
-        input(type='text', name='description', placeholder='Route Description')
-        input(type='text', name='color', placeholder='Route Color')
-        input(type='file', name='iconB64', placeholder='Route Icon')
-        input(type='number', name='idTransport', placeholder='Transport ID')
-        button(type='submit') Add Route
+        input(type='number', name='idTransport', placeholder='ID Transporte')
+        input(type='text', name='name', placeholder='Nombre Ruta')
+        input(type='text', name='description', placeholder='Descripcion Ruta')
+        input(type='text', name='color', placeholder='Color Ruta')
+        //input(type='file', name='iconB64', placeholder='Icono Ruta')
+        button(type='submit') Añadir ruta
 
   section#stops
       // Stops Table
-      h2 Stops
+      h2 Estaciones
       table#stopsTable
         thead
           tr
-            th ID
-            th Name
-            th Coordinates
+            th ID Estacion
+            th ID Ruta
+            th Nombre estación
+            th Latitud
+            th Longitud
+            th Distancia (m)
+            th Siguiente estacion (ID)
+            //th Icono
             th Borrar
         tbody
           //-  each stop in stops
@@ -157,27 +164,36 @@ main.content
                   button Delete
           tr
             th 1
+            th 2
             th Example Stop
-            th 19.4326, -99.1332 
+            th 19.4326
+            th -99.1332 
+            th 66.7
+            th 2
             th 
               button Delete       
       form#addStopForm
-        input(type='text', name='name', placeholder='Stop Name')
-        input(type='number', step='any', name='lon', placeholder='Coordinate X')
-        input(type='number', step='any', name='lat', placeholder='Coordinate Y')
-        input(type='number', name='idRoute', placeholder='Route ID')
-        input(type='file', name='iconB64', placeholder='Stop Icon')
+        input(type='text', name='name', placeholder='Nombre estación')
+        input(type='number', step='any', name='lon', placeholder='Latitud')
+        input(type='number', step='any', name='lat', placeholder='Longitud')
+        input(type='number', step='any', name='lat', placeholder='Distancia')
+        //input(type='file', name='iconB64', placeholder='Icono')
+        input(type='number', name='idRoute', placeholder='Id Ruta')
         button(type='submit') Añadir Estacion
 
       // Vehicles Table
   section#vehicles
-      h2 Vehicles
+      h2 Vehiculos
       table#vehiclesTable
         thead
           tr
             th ID
-            th Identifier
-            th Driver Token
+            th Identificador de Vehiculo
+            th ID Ruta
+            th Ruta
+            th ID Conductor 
+            th Username
+            //th Driver Token
             th Borrar
         tbody
           //-  each vehicle in vehicles
@@ -190,15 +206,21 @@ main.content
           tr
             th 1
             th Example Vehicle
-            th None
+            th 60
+            th CircuitoPolitc
+            th 5
+            th SAVIO001122
             th 
               button Delete       
 
 
       form#addVehicleForm
-        input(type='text', name='identifier', placeholder='Vehicle Identifier')
-        input(type='text', name='driverToken', placeholder='Driver Token (Optional)')
-        button(type='submit') Add Vehicle
+        input(type='text', name='id', placeholder='ID Vehiculo')
+        input(type='text', name='identifier', placeholder='Identificador')
+        input(type='text', name='idruta', placeholder='ID Ruta')
+        input(type='text', name='idcondutr', placeholder='ID Conductor')
+        //input(type='text', name='driverToken', placeholder='Driver Token (Optional)')
+        button(type='submit') Añadir vehiculo
 
       // Drivers Table
   section#drivers
@@ -206,10 +228,15 @@ main.content
       table#driversTable
         thead
           tr
-            th ID
-            th Name
+            th ID Conductor
+            th CURP
+            th Nombre
+            th Apellido Paterno
+            th Apellido Materno
             th Username
-            th Phone
+            //th Password
+            th Telefono
+            th Activo
             th Borrar
         tbody
           //-  each driver in drivers
@@ -222,22 +249,28 @@ main.content
                   button Delete
           tr
             th 1
-            th Example Driver
+            th SAVIO0001
+            th Isaac
+            th Sánchez
+            th Verdiguel
             th exampleUser
-            th 123-456-7890
+            //th trabajoT123
+            th 5566778899
+            th 1
+
             th 
                   button Delete 
 
       form#addDriverForm
         input(type='text', name='curp', placeholder='CURP')
-        input(type='text', name='name', placeholder='Name')
-        input(type='text', name='surnameP', placeholder='Surname Paternal')
-        input(type='text', name='surnameM', placeholder='Surname Maternal')
+        input(type='text', name='name', placeholder='Nombre')
+        input(type='text', name='surnameP', placeholder='Apellido Paterno')
+        input(type='text', name='surnameM', placeholder='Apellido Materno')
         input(type='text', name='username', placeholder='Username')
-        input(type='text', name='phone', placeholder='Phone')
-        input(type='text', name='password', placeholder='Password')
-        button(type='submit') Add Driver
-
+        //input(type='text', name='password', placeholder='Password')
+        input(type='text', name='phone', placeholder='Telefono')
+        input(type='number', name='status', placeholder='Estatus')
+        button(type='submit') Añadir Conductor
     footer
       .logo
         img(src='../icons/location-white.svg', alt='Logo')
