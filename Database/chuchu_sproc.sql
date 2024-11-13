@@ -256,6 +256,54 @@ END$$
 
 
 -- -----------------------------------------------------------------------------
+  -- startTrip
+-- -----------------------------------------------------------------------------
+DROP PROCEDURE IF EXISTS startTrip$$
+CREATE PROCEDURE startTrip(
+    `pToken` varchar(40),
+    `pIdRoute` int
+)
+sp: BEGIN
+
+    DECLARE vIdVehicle INT;
+    DECLARE vIdStop INT;
+
+    IF (SELECT COUNT(*) FROM Vehicle WHERE driverToken = pToken) = 0 THEN
+        SELECT 2 as error, 'invalid-token' as message;
+        LEAVE sp;
+    END IF;
+
+    SELECT v.idVehicle FROM Vehicle v
+        WHERE driverToken = pToken
+        INTO vIdVehicle;
+    SELECT s.idStop FROM Stop s
+        WHERE s.idRoute = pIdRoute AND s.idStop NOT IN (
+            SELECT idNext FROM Stop WHERE idRoute = pIdRoute and idNext IS NOT NULL
+        )
+        INTO vIdStop;
+    
+    DELETE FROM Last_Location
+        WHERE idVehicle = vIdVehicle;
+    INSERT INTO Last_Location(idVehicle, idLastStop, lat, lon)
+        SELECT vIdVehicle, s.idStop, s.lat, s.lon
+            FROM Stop s
+            WHERE idStop = vIdStop;
+
+    DELETE FROM VehicleData
+        WHERE idVehicle = vIdVehicle;
+    INSERT INTO VehicleData(idVehicle, direction, distanceToStop, avgSpeed)
+        SELECT vIdVehicle, 0, s.distanceTo, 1
+            FROM Stop s
+            WHERE s.idStop = (
+                SELECT idNext FROM Stop WHERE idStop = vIdStop
+        );
+    
+    SELECT 0 as error;
+
+END$$
+
+
+-- -----------------------------------------------------------------------------
   -- cancelTrip
 -- -----------------------------------------------------------------------------
 DROP PROCEDURE IF EXISTS cancelTrip$$
@@ -280,6 +328,7 @@ sp: BEGIN
     SELECT 0 as error;
 
 END$$
+
 
 -- -----------------------------------------------------------------------------
   -- getIncidents
@@ -456,7 +505,6 @@ sp: BEGIN
         );
         SET vBearing = MOD(vBearing+360, 360);
 
-        SET @alpha = 0.2;
         SET @R = 6371000;
 
         SET haversineDelta = (
@@ -467,6 +515,7 @@ sp: BEGIN
                     POWER(SIN(RADIANS(pLon - ll.lon) / 2), 2)
                 ))
             FROM Last_Location ll
+            WHERE idVehicle = vIdVehicle
         );
 
         UPDATE VehicleData SET
@@ -480,8 +529,9 @@ sp: BEGIN
         
     END IF;
     
-    -- alpha for the EWMA (Exponentially Weighted Moving Average)
     -- TODO Documentar
+    -- alpha for the EWMA (Exponentially Weighted Moving Average)
+    SET @alpha = 0.05;
     UPDATE VehicleData SET
         avgSpeed = @alpha * pSpeed + (1 - @alpha) * avgSpeed
         WHERE idVehicle = vIdVehicle;
@@ -521,7 +571,7 @@ END$$
 -- -----------------------------------------------------------------------------
 DROP PROCEDURE IF EXISTS arrivedToStop$$
 CREATE PROCEDURE arrivedToStop(
-    `pToken` int,
+    `pToken` varchar(40),
     `pIdStop` int
 )
 sp: BEGIN
@@ -584,7 +634,7 @@ sp: BEGIN
 
     SET vCurrStop = pIdStop;
     SET vTotalDistance = 0;
-    SET vDistanceToNext = 0;
+    SET vDistanceToNext = 0; 
 
     WHILE (SELECT COUNT(*) FROM Last_Location WHERE idLastStop = vCurrStop) = 0 DO
         SET vTotalDistance = vTotalDistance + (SELECT distanceTo FROM Stop WHERE idStop = vCurrStop);
@@ -596,7 +646,9 @@ sp: BEGIN
     END WHILE;
     
     SET vIdVehicle = (SELECT idVehicle FROM Last_Location WHERE idLastStop = vCurrStop LIMIT 1);
-    SET vDistanceToNext = (SELECT distanceToStop FROM VehicleData WHERE idVehicle = vIdVehicle);
+    IF (SELECT COUNT(*) FROM Last_Location WHERE idVehicle = vIdVehicle AND idLastStop = pIdStop) = 0 THEN
+        SET vDistanceToNext = (SELECT distanceToStop FROM VehicleData WHERE idVehicle = vIdVehicle);
+    END IF;
     SET vTotalDistance = vTotalDistance + vDistanceToNext;
     SET vIdNextStop = (SELECT idNext FROM Stop WHERE idStop = vCurrStop);
     SET vAvgSpeed = (SELECT avgSpeed FROM VehicleData WHERE idVehicle = vIdVehicle);
@@ -1093,30 +1145,36 @@ CREATE PROCEDURE testDriverData(
 )
 BEGIN
 
-    CALL reportLocation(19.503733199072748, -99.13524625275707, pToken, 10);
+    CALL reportLocation(19.496227164140898, -99.13678947678747, pToken, 10);
     SET @test_trash = (SELECT SLEEP(1));
-    CALL reportLocation(19.503768954678748, -99.13552695078624, pToken, 20);
+    CALL reportLocation(19.496583952117426, -99.13672864809563, pToken, 20);
     SET @test_trash = (SELECT SLEEP(1));
-    CALL reportLocation(19.503847616984153, -99.13598972321267, pToken, 30);
+    CALL reportLocation(19.49677986660929, -99.13669316469205, pToken, 30);
     SET @test_trash = (SELECT SLEEP(1));
-    CALL reportLocation(19.503904825909505, -99.13622490264251, pToken, 20);
+    CALL reportLocation(19.497184437256912, -99.13659009384756, pToken, 20);
     SET @test_trash = (SELECT SLEEP(1));
-    CALL reportLocation(19.503754652437287, -99.1362931805415, pToken, 20);
+    CALL reportLocation(19.49766068251283, -99.13651405797317, pToken, 20);
     SET @test_trash = (SELECT SLEEP(1));
-    CALL reportLocation(19.503668838962014, -99.13620972977607, pToken, 20);
+    CALL reportLocation(19.49776262111194, -99.13649547142845, pToken, 5);
+    CALL arrivedToStop(pToken, 45);
     SET @test_trash = (SELECT SLEEP(1));
-    CALL reportLocation(19.503597327697836, -99.13590627244724, pToken, 30);
+    CALL reportLocation(19.49794419908754, -99.13647181582738, pToken, 10);
     SET @test_trash = (SELECT SLEEP(1));
-    CALL reportLocation(19.50350436300716, -99.13534487638894, pToken, 30);
+    CALL reportLocation(19.498143297505326, -99.13640760776376, pToken, 10);
     SET @test_trash = (SELECT SLEEP(1));
-    CALL reportLocation(19.503389944852962, -99.1348062396303, pToken, 10);
+    CALL reportLocation(19.498369406574476, -99.1363450433734, pToken, 5);
+    CALL arrivedToStop(pToken, 44);
     SET @test_trash = (SELECT SLEEP(1));
-    CALL reportLocation(19.50350436300716, -99.13457864663368, pToken, 10);
+    CALL reportLocation(19.498645038658655, -99.1363053323887, pToken, 5);
     SET @test_trash = (SELECT SLEEP(1));
-    CALL reportLocation(19.50365453671171, -99.13467727026554, pToken, 20);
+    CALL reportLocation(19.498778765510796, -99.13629084727746, pToken, 10);
     SET @test_trash = (SELECT SLEEP(1));
-    CALL reportLocation(19.503671030529045, -99.13483387683858, pToken, 20);
+    CALL reportLocation(19.499065465676118, -99.13622663921383, pToken, 15);
     SET @test_trash = (SELECT SLEEP(1));
+    CALL reportLocation(19.49921359389583, -99.1361860867526, pToken, 5);
+    SET @test_trash = (SELECT SLEEP(1));
+    CALL reportLocation(19.499275712141145, -99.13618101769497, pToken, 5);
+    CALL arrivedToStop(pToken, 43);
 
 END$$
 
