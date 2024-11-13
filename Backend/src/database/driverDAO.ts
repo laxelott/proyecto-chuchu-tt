@@ -2,6 +2,14 @@ import SQLPool from './conn/databaseConnection.js';
 import crypto from 'crypto';
 
 export class DriverDAO {
+    static async startTrip(token: any, routeId: any) {
+        const results: any = (await SQLPool.query(
+            "CALL startTrip(?, ?)",
+            [token, routeId]
+        ));
+
+        return results[0];
+    }
     static async cancelTrip(token: any, reason: any) {
         const results: any = (await SQLPool.query(
             "CALL cancelTrip(?, ?)",
