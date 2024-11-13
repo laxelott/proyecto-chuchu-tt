@@ -28,6 +28,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
@@ -130,11 +131,6 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         // Get all the busStops from the line selected
         routeID = intent.getIntExtra("routeID", 0)
         Log.d("Transport response", "Datos de transporte: $routeID")
-        val service = ApiHelper().prepareApi()
-        updateCurrentLocation()
-        getDriversLocations()
-        startGettingIncidents()
-        fetchBusStops(service)
         // Configurar CoroutineScope
         coroutineScope = CoroutineScope(Dispatchers.Main + Job())
         progressBar = findViewById(R.id.progress_bar)
@@ -543,13 +539,30 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         mMap = googleMap
         setupMap()
         enableLocation()
+        updateCurrentLocation()
         setupLocationButton()
         searchBarForBusStops()
         setupInfoWindowAdapter()
-        CoroutineScope(Dispatchers.Main).launch {
+        lifecycleScope.launch {
             setupMarkerClickListeners()
         }
+
+        mMap.setOnMapLoadedCallback {
+            // Ejecuta las llamadas a la API después de que el mapa esté completamente cargado
+            lifecycleScope.launch {
+                fetchDataInBackground()  // Llama a la función que ejecuta las llamadas a la API
+            }
+        }
     }
+
+    private suspend fun fetchDataInBackground() = withContext(Dispatchers.IO) {
+        // Inicializa tu servicio y realiza las llamadas a la API en segundo plano
+        val service = ApiHelper().prepareApi()
+        fetchBusStops(service)
+        getDriversLocations()
+        startGettingIncidents()
+    }
+
 
     private fun setupMap() {
         mMap.setMapStyle(MapStyleOptions.loadRawResourceStyle(this, R.raw.custom_map_style))
@@ -558,6 +571,8 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
             isMapToolbarEnabled = false
             isZoomControlsEnabled = false
             isCompassEnabled = false
+            mMap.isBuildingsEnabled = false
+            mMap.uiSettings.isTiltGesturesEnabled = false
         }
     }
 
@@ -811,31 +826,14 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun showDropAndDestination(busStops: List<BusStop>, response: InfoResponse) {
-        val penultimateItem = if (busStops.size > 2) busStops[busStops.size - 2] else null
         Log.d("Info", "bus stops on travel: ${busStops.size}")
-        // Check if the penultimate item exists
-        if (penultimateItem != null && !alertShown) {
-            if (response.nextName == penultimateItem.name) {
-                alertUserForFinalDestination()
-                alertShown = true
-            } else if (response.nextDistance < 10f) {
-                arrivalAlert()
-                endTravel() // Stop API call here
-                alertShown = true
-            }
-        }
-        else {
-            if (busStops.size > 1) {
-                val secondItem = busStops[1]
-                if (response.nextName == secondItem.name && !alertShown) {
-                    alertUserForFinalDestination()
-                    alertShown = true
-                } else if (response.nextDistance < 10f && !alertShown) {
-                    arrivalAlert()
-                    endTravel() // Stop API call here
-                    alertShown = true
-                }
-            }
+        if (response.nextName == busStops.last().name) {
+            alertUserForFinalDestination()
+            alertShown = true
+        } else if (response.totalDistance < 10f) {
+            arrivalAlert()
+            endTravel() // Stop API call here
+            alertShown = true
         }
     }
 

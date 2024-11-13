@@ -27,6 +27,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
 import com.example.mapa.databinding.ActivityMapaTransporteBinding
 import com.example.mapa.interfaces.ApiService
 import com.example.mapa.interfaces.CustomInfoWindowAdapter
@@ -133,7 +134,7 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
         progressBar = findViewById(R.id.progress_bar)
         background = findViewById(R.id.ownBackground)
 
-        updateCurrentLocation()
+
         // Initialize directions API
         val retrofit = Retrofit.Builder()
             .baseUrl("https://maps.googleapis.com/maps/api/")
@@ -146,8 +147,7 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
         routeID = intent.getIntExtra("idRoute", 0)
         vehicleIdentifier = intent.getStringExtra("vehicleIdentifier").toString()
 
-        val service = ApiHelper().prepareApi()
-        fetchBusStops(service)
+
     }
 
     private fun updateCurrentLocation() {
@@ -185,7 +185,17 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
                         if (distance <= 20f) {
                             setupMapMarkersAndRoutes()
                             CoroutineScope(Dispatchers.IO).launch {
-                                startTravel()
+                                val startT = ApiService.StartTrip(token, routeID)
+                                val response = ApiHelper().prepareApi().startTrip(startT)
+                                if (response.isSuccessful) {
+                                    Log.d("API Response", "Ubicacion enviada")
+                                    startTravel()
+                                } else {
+                                    Log.e(
+                                        "API Error",
+                                        "Error al enviar ubicacion: ${response.code()} ${response.message()}"
+                                    )
+                                }
                             }
                         } else {
                             showAlertDialog(this@MapaActivity)
@@ -420,7 +430,7 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
                 Log.d("Transport response", "Tiempos de conductor")
                 // Update the UI fragment on the Main thread
                 CoroutineScope(Dispatchers.Main).launch {
-                    Log.d("debug", progressBar.toString())
+                    Log.d("debug", "Contador: $busStopCounter")
                     hideProgressBar()
 
                     var infoFragment: Fragment? =
@@ -428,7 +438,7 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
                     if (infoFragment is InfoFragment) {
                         val startTravelFragment = infoFragment
                         startTravelFragment.updateData(info)
-                        if(info.nextName == busStops[busStopCounter].name && info.nextDistance < 10f){
+                        if(info.nextName == busStops[busStopCounter].name && info.nextDistance < 10f && busStopCounter > 0){
                             endTravel()
                         }
                         if (info.nextDistance < 10f){
@@ -805,6 +815,22 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
         setUpEndTravelButton()
         setupInfoWindowAdapter()
         setupMarkerClickListeners()
+
+        mMap.setOnMapLoadedCallback {
+            // Ejecuta las llamadas a la API después de que el mapa esté completamente cargado
+            lifecycleScope.launch {
+                fetchDataInBackground()  // Llama a la función que ejecuta las llamadas a la API
+            }
+        }
+
+
+    }
+
+    private suspend fun fetchDataInBackground() = withContext(Dispatchers.IO) {
+        // Inicializa tu servicio y realiza las llamadas a la API en segundo plano
+        updateCurrentLocation()
+        val service = ApiHelper().prepareApi()
+        fetchBusStops(service)
     }
 
     private fun setupMap() {
@@ -814,6 +840,7 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
             isMapToolbarEnabled = false
             isZoomControlsEnabled = false
             isCompassEnabled = false
+            mMap.isBuildingsEnabled = false
         }
     }
 
