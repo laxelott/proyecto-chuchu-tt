@@ -53,4 +53,13 @@ export class DriverDAO {
 
         return results[0];
     }
+
+    static async getWaitTime(token: any) {
+        const results: any = (await SQLPool.query(
+            "CALL getWaitTimeWithToken(?)",
+            [token]
+        ));
+
+        return results[0];
+    }
 }

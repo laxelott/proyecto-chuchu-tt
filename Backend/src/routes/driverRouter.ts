@@ -39,9 +39,9 @@ router.post('/leaveVehicle', function(req, res, next) {
         .catch((err) => {res.send("ERROR: " + err)});
 })
 
-router.post('/startTrip', function(req, res, next) {
+router.post('/startTrip/:routeId', function(req, res, next) {
     let token = req.body.token;
-    let routeId = req.body.routeId;
+    let routeId = req.params.routeId;
 
     DriverDAO.startTrip(token, routeId)
         .then((result) => {res.send(result)})
@@ -55,6 +55,14 @@ router.post('/cancelTrip', function(req, res, next) {
     console.log("leaveVehicle")
 
     DriverDAO.cancelTrip(token, reason)
+        .then((result) => {res.send(result)})
+        .catch((err) => {res.send("ERROR: " + err)});
+})
+
+router.post('/getWaitTime', function(req, res, next) {
+    let token = req.body.token;
+
+    DriverDAO.getWaitTime(token)
         .then((result) => {res.send(result)})
         .catch((err) => {res.send("ERROR: " + err)});
 })

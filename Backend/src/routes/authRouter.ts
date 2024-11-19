@@ -57,5 +57,25 @@ router.post('/logoutadmin', function(req, res, next) {
         .catch((err) => {res.send("ERROR: " + err)});
 });
 
+router.post('/checkToken/:username', function(req, res, next) {
+    let token = req.body.token;
+    let username = req.params.username;
+
+    AuthDAO.checkToken(token, username)
+        .then((result) => {res.send(result)})
+        .catch((err) => {res.send("ERROR: " + err)});
+});
+
+router.post('/checkVehicle/:identifier', function(req, res, next) {
+    console.log(req.body)
+    console.log(req.params)
+    let token = req.body.token;
+    let identifier = req.params.identifier;
+
+    AuthDAO.checkVehicle(token, identifier)
+        .then((result) => {res.send(result)})
+        .catch((err) => {res.send("ERROR: " + err)});
+});
+
 
 export default router;
