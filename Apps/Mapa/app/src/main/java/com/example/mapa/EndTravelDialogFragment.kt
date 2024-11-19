@@ -86,7 +86,7 @@ class EndTravelDialogFragment(private val sendingDataJob: Job?, private val gett
         val cancelReason = ApiService.CancelTrip(token, reason)
         val service = ApiHelper().prepareApi()
         ApiHelper().getDataFromDB(
-            serviceCall = { service.deleteIncident(cancelReason)},
+            serviceCall = { service.cancelTrip(cancelReason)},
             processResponse = { response ->
                 CoroutineScope(Dispatchers.Main).launch {
                     val responseBody = response.body()
