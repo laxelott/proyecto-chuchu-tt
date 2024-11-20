@@ -12,20 +12,56 @@ html(lang='en')
     script(src='https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js')
     script.
       $(document).ready(function() {
+        // Función para obtener datos y llenar tablas
+        function loadData() {
+          const endpoints = {
+            transports: '/api/admin/transports',
+            routes: '/api/admin/routes',
+            vehicles: '/api/admin/vehicles',
+            drivers: '/api/admin/drivers',
+            stops: '/api/admin/stops'
+          };
+
+          // Obtener datos y poblar cada tabla
+          Object.entries(endpoints).forEach(([tableId, endpoint]) => {
+            $.get(endpoint, function(data) {
+              const tableBody = $(`#${tableId}Table tbody`);
+              tableBody.empty(); // Limpiar contenido actual
+              data.forEach(item => {
+                // Crear filas dinámicamente para cada tabla
+                const row = `<tr>
+                  ${Object.values(item).map(value => `<td>${value}</td>`).join('')}
+                  <td><button class="delete" data-id="${item.id}">Borrar</button></td>
+                </tr>`;
+                tableBody.append(row);
+              });
+            }).fail(function() {
+              console.error(`Error loading data for ${tableId}`);
+            });
+          });
+        }
+
+        // Llamar a la función de carga de datos al iniciar la página
+        loadData();
+
+        // Inicializar DataTables
         $('#transportsTable, #routesTable, #vehiclesTable, #driversTable, #stopsTable').DataTable();
 
-        // Form submissions
-        ['Transport', 'Route', 'Vehicle', 'Driver', 'Stop'].forEach(form => {
-          $(`#add${form}Form`).submit(function(e) {
+        // Lógica para manejar el envío de formularios y recargar la tabla correspondiente
+        ['Transport', 'Route', 'Vehicle', 'Driver', 'Stop'].forEach(formType => {
+          $(`#add${formType}Form`).submit(function(e) {
             e.preventDefault();
-            $.post(`/api/admin/create${form}`, $(this).serialize(), function(response) {
+            $.post(`/api/admin/${formType.toLowerCase()}s`, $(this).serialize(), function(response) {
               alert(response.message);
-              location.reload();
+              loadData(); // Recargar los datos de la tabla después de enviar
+            }).fail(function(err) {
+              console.error(`Error adding ${formType.toLowerCase()}:`, err);
+              alert("Error al agregar. Intenta nuevamente.");
             });
           });
         });
 
-        // Lógica para mostrar la tabla seleccionada
+        // Lógica para mostrar/ocultar secciones según la pestaña seleccionada
         $('li').click(function() {
           var target = $(this).data('target');
           $('section').hide(); // Ocultar todas las secciones
@@ -33,21 +69,22 @@ html(lang='en')
         });
 
         // Mostrar la primera tabla por defecto
-        $('section').hide(); 
-        $('#transports').show(); 
+        $('section').hide();
+        $('#transports').show();
 
-        // Logout del admin
+        // Lógica de logout
         document.getElementById('logoutAdminForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            const token = localStorage.getItem('adminToken'); // Asumiendo que el token está guardado en localStorage
-            
-            $.post('/api/admin/logoutadmin', { token }, function(response) {
-              alert(response.message);
-              window.location.href = '/loginadmin'; // Redirigir al login tras el logout
-            });
+          e.preventDefault();
+          const token = localStorage.getItem('adminToken'); // Obtener token desde localStorage
+          
+          $.post('/api/admin/logoutadmin', { token }, function(response) {
+            alert(response.message);
+            window.location.href = '/loginadmin'; // Redirigir al login tras el logout
+          });
         });
       })
     title Tablero de Administración
+
   body
     header
       .logo
@@ -68,209 +105,112 @@ html(lang='en')
         li(data-target='#drivers') Conductores
         li(data-target='#stops') Paradas
 
-main.content
-  section#transports
-      h2 Transporte
-      table#transportsTable
-        thead
-          tr
-            th Id Transporte
-            th Nombre del transporte
-            th Imagen
-            th Borrar
-        tbody
-          //-each transport in transports
+    main.content
+      // Transporte Section
+      section#transports
+        h2 Transporte
+        table#transportsTable
+          thead
             tr
-              td= transport.idTransport
-              td= transport.name
-              td= transport.iconB64
-              td 
-                button Delete
-          tr
-            th 1
-            th Example Transport
-            th (icon here)
-            th 
-                  button Delete
+              th ID Transporte
+              th Nombre del transporte
+              th Imagen
+              th Borrar
+          tbody
+            // Los datos se llenarán dinámicamente desde el backend
 
-      form#addTransportForm
-        input(type='text', name='name', placeholder='Nombre Transporte')
-        input(type='file', name='iconB64', placeholder='Icono Transporte')
-        button(type='submit') Añadir Transporte
+        form#addTransportForm
+          input(type='text', name='name', placeholder='Nombre Transporte')
+          button(type='submit') Añadir Transporte
 
-      // Routes Table
-  section#routes
-      h2 Rutas
-      table#routesTable
-        thead
-          tr
-            th ID Ruta
-            th ID Transporte
-            th Nombre de la ruta
-            th Descripcion
-            th Color
-            th Icon
-            th Borrar
-        tbody
-            //-  each route in routes
-                tr
-                  td= route.idRoute
-                  td= route.name
-                  td= route.description
-                  td= route.color
-                  td= route.iconB64
-                  td 
-                    button Delete
-          tr
-            th 1
-            th 3
-            th Linea 8
-            th CircuitoPolitc
-            th FF2B78E4
-            //th (icon here)
-              th 
-                  button Delete
+      // Rutas Section
+      section#routes
+        h2 Rutas
+        table#routesTable
+          thead
+            tr
+              th ID Ruta
+              th ID Transporte
+              th Nombre de la ruta
+              th Descripción
+              th Color
+              th Borrar
+          tbody
+            // Los datos se llenarán dinámicamente desde el backend
 
-      form#addRouteForm
-        input(type='number', name='idTransport', placeholder='ID Transporte')
-        input(type='text', name='name', placeholder='Nombre Ruta')
-        input(type='text', name='description', placeholder='Descripcion Ruta')
-        input(type='text', name='color', placeholder='Color Ruta')
-        //input(type='file', name='iconB64', placeholder='Icono Ruta')
-        button(type='submit') Añadir ruta
+        form#addRouteForm
+          input(type='number', name='idtransport', placeholder='ID Transporte')
+          input(type='text', name='nombreruta', placeholder='Nombre Ruta')
+          input(type='text', name='description', placeholder='Descripción')
+          input(type='text', name='color', placeholder='Color')
+          button(type='submit') Añadir Ruta
 
-  section#stops
-      // Stops Table
-      h2 Estaciones
-      table#stopsTable
-        thead
-          tr
-            th ID Estacion
-            th ID Ruta
-            th Nombre estación
-            th Latitud
-            th Longitud
-            th Distancia (m)
-            th Siguiente estacion (ID)
-            //th Icono
-            th Borrar
-        tbody
-          //-  each stop in stops
-              tr
-                td= stop.idStop
-                td= stop.name
-                td= `${stop.lon}, ${stop.lat}`
-                td 
-                  button Delete
-          tr
-            th 1
-            th 2
-            th Example Stop
-            th 19.4326
-            th -99.1332 
-            th 66.7
-            th 2
-            th 
-              button Delete       
-      form#addStopForm
-        input(type='text', name='name', placeholder='Nombre estación')
-        input(type='number', step='any', name='lon', placeholder='Latitud')
-        input(type='number', step='any', name='lat', placeholder='Longitud')
-        input(type='number', step='any', name='lat', placeholder='Distancia')
-        //input(type='file', name='iconB64', placeholder='Icono')
-        input(type='number', name='idRoute', placeholder='Id Ruta')
-        button(type='submit') Añadir Estacion
+      // Paradas Section
+      section#stops
+        h2 Paradas
+        table#stopsTable
+          thead
+            tr
+              th ID Estación
+              th ID Ruta
+              th Nombre de la estación
+              th Latitud
+              th Longitud
+              th Siguiente estación
+              th Borrar
+          tbody
+            // Los datos se llenarán dinámicamente desde el backend
 
-      // Vehicles Table
-  section#vehicles
-      h2 Vehiculos
-      table#vehiclesTable
-        thead
-          tr
-            th ID
-            th Identificador de Vehiculo
-            th ID Ruta
-            th Ruta
-            th ID Conductor 
-            th Username
-            //th Driver Token
-            th Borrar
-        tbody
-          //-  each vehicle in vehicles
-              tr
-                td= vehicle.idVehicle
-                td= vehicle.identifier
-                td= vehicle.driverToken
-                td 
-                  button Delete
-          tr
-            th 1
-            th Example Vehicle
-            th 60
-            th CircuitoPolitc
-            th 5
-            th SAVIO001122
-            th 
-              button Delete       
+        form#addStopForm
+          input(type='number', name='idruta', placeholder='ID Ruta')
+          input(type='text', name='name', placeholder='Nombre Estación')
+          input(type='number', step='any', name='latitude', placeholder='Latitud')
+          input(type='number', step='any', name='longitude', placeholder='Longitud')
+          input(type='text', name='nombrenext', placeholder='Nombre Siguiente Estación')
+          button(type='submit') Añadir Estación
 
+      // Vehículos Section
+      section#vehicles
+        h2 Vehículos
+        table#vehiclesTable
+          thead
+            tr
+              th ID Vehículo
+              th Identificador
+              th ID Conductor
+              th Borrar
+          tbody
+            // Los datos se llenarán dinámicamente desde el backend
 
-      form#addVehicleForm
-        input(type='text', name='id', placeholder='ID Vehiculo')
-        input(type='text', name='identifier', placeholder='Identificador')
-        input(type='text', name='idruta', placeholder='ID Ruta')
-        input(type='text', name='idcondutr', placeholder='ID Conductor')
-        //input(type='text', name='driverToken', placeholder='Driver Token (Optional)')
-        button(type='submit') Añadir vehiculo
+        form#addVehicleForm
+          input(type='text', name='identificador', placeholder='Identificador Vehículo')
+          input(type='number', name='idconductor', placeholder='ID Conductor')
+          button(type='submit') Añadir Vehículo
 
-      // Drivers Table
-  section#drivers
-      h2 Drivers
-      table#driversTable
-        thead
-          tr
-            th ID Conductor
-            th CURP
-            th Nombre
-            th Apellido Paterno
-            th Apellido Materno
-            th Username
-            //th Password
-            th Telefono
-            th Activo
-            th Borrar
-        tbody
-          //-  each driver in drivers
-              tr
-                td= driver.idDriver
-                td= driver.name
-                td= driver.username
-                td= driver.phone
-                td 
-                  button Delete
-          tr
-            th 1
-            th SAVIO0001
-            th Isaac
-            th Sánchez
-            th Verdiguel
-            th exampleUser
-            //th trabajoT123
-            th 5566778899
-            th 1
+      // Conductores Section
+      section#drivers
+        h2 Conductores
+        table#driversTable
+          thead
+            tr
+              th ID Conductor
+              th CURP
+              th Nombre
+              th Teléfono
+              th Activo
+              th Borrar
+          tbody
+            // Los datos se llenarán dinámicamente desde el backend
 
-            th 
-                  button Delete 
-
-      form#addDriverForm
-        input(type='text', name='curp', placeholder='CURP')
-        input(type='text', name='name', placeholder='Nombre')
-        input(type='text', name='surnameP', placeholder='Apellido Paterno')
-        input(type='text', name='surnameM', placeholder='Apellido Materno')
-        input(type='text', name='username', placeholder='Username')
-        //input(type='text', name='password', placeholder='Password')
-        input(type='text', name='phone', placeholder='Telefono')
-        input(type='number', name='status', placeholder='Estatus')
-        button(type='submit') Añadir Conductor
+        form#addDriverForm
+          input(type='text', name='curp', placeholder='CURP')
+          input(type='text', name='name', placeholder='Nombre')
+          input(type='text', name='surnamep', placeholder='Apellido Paterno')
+          input(type='text', name='surnamem', placeholder='Apellido Materno')
+          input(type='text', name='phone', placeholder='Teléfono')
+          input(type='number', name='active', placeholder='Activo')
+          button(type='submit') Añadir Conductor
+          
     footer
       .logo
         img(src='../icons/location-white.svg', alt='Logo')

@@ -1178,6 +1178,59 @@ BEGIN
 END$$
 
 -- -----------------------------------------------------------------------------
+  -- upsertVehicle
+-- -----------------------------------------------------------------------------
+DROP PROCEDURE IF EXISTS upsertVehicle$$
+CREATE PROCEDURE upsertVehicle(
+   	`pIdentificador` varchar(255),
+	`pIdconductor` int,
+	`pCurp` varchar(255)
+)
+BEGIN
+
+    IF (SELECT COUNT(*) FROM Vehicle WHERE identifier = pIdentificador) > 0 THEN
+        UPDATE Vehicle r SET
+            r.identifier = pIdentificador
+        WHERE r.identifier = pIdentificador;
+        SELECT pIdentificador;
+    ELSE
+        INSERT INTO Vehicle(
+            identifier
+        ) VALUES (
+            pIdentificador
+        );
+       
+       	CALL nuevoStoredProcedure(pCurp, pIdentificador);
+        SELECT LAST_INSERT_ID();
+    END IF;
+END$$
+
+-- -----------------------------------------------------------------------------
+  -- upsertTransport
+-- -----------------------------------------------------------------------------
+DROP PROCEDURE IF EXISTS upsertTransport$$
+CREATE PROCEDURE upsertTransport(
+   	`pName` varchar(255)
+)
+BEGIN
+
+    IF (SELECT COUNT(*) FROM Transport WHERE name = pName) > 0 THEN
+        UPDATE Transport r SET
+            r.name = pName
+        WHERE r.name = pName;
+        SELECT pName;
+    ELSE
+        INSERT INTO Transport(
+            name
+        ) VALUES (
+            pName
+        );
+        SELECT LAST_INSERT_ID();
+    END IF;
+END$$
+
+
+-- -----------------------------------------------------------------------------
   -- loginAdmin
 -- -----------------------------------------------------------------------------
 DROP PROCEDURE IF EXISTS loginAdmin$$
@@ -1269,6 +1322,87 @@ BEGIN
     ELSE
         SELECT 0 AS logout;
     END IF;
+
+END$$
+
+-- -----------------------------------------------------------------------------
+  -- getRoutesAdmin
+-- -----------------------------------------------------------------------------
+DROP PROCEDURE IF EXISTS getRoutesAdmin$$
+CREATE PROCEDURE getRoutesAdmin()
+BEGIN
+
+    SELECT idRoute, idTransport , name, description , color 
+	FROM Chuchu.Route;
+
+END$$
+
+-- -----------------------------------------------------------------------------
+  -- getTransportsAdmin
+-- -----------------------------------------------------------------------------
+DROP PROCEDURE IF EXISTS getTransportsAdmin$$
+CREATE PROCEDURE getTransportsAdmin()
+BEGIN
+
+    SELECT *
+	FROM Chuchu.Transport;
+
+END$$
+
+-- -----------------------------------------------------------------------------
+  -- getVehiclesAdmin
+-- -----------------------------------------------------------------------------
+DROP PROCEDURE IF EXISTS getVehiclesAdmin$$
+CREATE PROCEDURE getVehiclesAdmin()
+BEGIN
+
+    WITH VEHICULO_R_D AS
+	(
+		SELECT V.idVehicle, V.identifier, VR.idRoute, DV.idDriver
+		FROM Chuchu.Vehicle V
+		LEFT JOIN
+		Chuchu.Vehicle_Route VR
+		ON V.idVehicle = VR.idVehicle
+		LEFT JOIN
+		Chuchu.Driver_Vehicle DV
+		ON V.idVehicle = DV.idVehicle
+	), VECHDATA AS 
+	(
+		SELECT D.idVehicle, D.identifier, D.idRoute, R.description, D.idDriver, DR.username
+		FROM VEHICULO_R_D AS D
+		LEFT JOIN 
+		Chuchu.Driver AS DR
+		ON D.idDriver = DR.idDriver
+		LEFT JOIN
+		Chuchu.Route AS R
+		ON D.idRoute = R.idRoute
+	)
+	SELECT *
+	FROM VECHDATA;
+
+END$$
+
+-- -----------------------------------------------------------------------------
+  -- getDriversAdmin
+-- -----------------------------------------------------------------------------
+DROP PROCEDURE IF EXISTS getDriversAdmin$$
+CREATE PROCEDURE getDriversAdmin()
+BEGIN
+
+    SELECT idDriver, curp , name , surnameP , surnameM , username, phone , active
+	FROM Chuchu.Driver;
+
+END$$
+
+-- -----------------------------------------------------------------------------
+  -- getStopsAdmin
+-- -----------------------------------------------------------------------------
+DROP PROCEDURE IF EXISTS getStopsAdmin$$
+CREATE PROCEDURE getStopsAdmin()
+BEGIN
+
+    SELECT idStop, idRoute, name , lat , lon , distanceTo, idNext 
+	FROM Chuchu.Stop;
 
 END$$
 

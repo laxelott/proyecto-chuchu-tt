@@ -10,6 +10,7 @@ import transportDataRouter from './routes/transportDataRouter.js';
 import locationRouter from './routes/locationRouter.js';
 import incidentsRouter from './routes/incidentsDataRouter.js';
 import driverRouter from './routes/driverRouter.js';
+import adminRouter from './routes/adminRouter.js';
 
 const app:Express = express();
 
@@ -33,6 +34,7 @@ app.use('/api/data/', transportDataRouter);
 app.use('/api/location/', locationRouter);
 app.use('/api/incidents/', incidentsRouter);
 app.use('/api/driver/', driverRouter);
+app.use('/api/admin/', adminRouter);
 
 
 // catch 404 and forward to error handler
