@@ -121,6 +121,7 @@ html(lang='en')
 
         form#addTransportForm
           input(type='text', name='name', placeholder='Nombre Transporte')
+          //input(type='file', name='iconB64', placeholder='Icono Transporte')
           button(type='submit') Añadir Transporte
 
       // Rutas Section
@@ -134,16 +135,19 @@ html(lang='en')
               th Nombre de la ruta
               th Descripción
               th Color
+              th Icono
               th Borrar
           tbody
             // Los datos se llenarán dinámicamente desde el backend
 
         form#addRouteForm
-          input(type='number', name='idtransport', placeholder='ID Transporte')
-          input(type='text', name='nombreruta', placeholder='Nombre Ruta')
-          input(type='text', name='description', placeholder='Descripción')
-          input(type='text', name='color', placeholder='Color')
-          button(type='submit') Añadir Ruta
+          input(type='number', name='idTransport', placeholder='ID Ruta')
+          input(type='number', name='idTransport', placeholder='ID Transporte')
+          input(type='text', name='name', placeholder='Nombre Ruta')
+          input(type='text', name='description', placeholder='Descripcion Ruta')
+          input(type='text', name='color', placeholder='Color Ruta')
+          //input(type='file', name='iconB64', placeholder='Icono Ruta')
+          button(type='submit') Añadir ruta
 
       // Paradas Section
       section#stops
@@ -162,12 +166,13 @@ html(lang='en')
             // Los datos se llenarán dinámicamente desde el backend
 
         form#addStopForm
-          input(type='number', name='idruta', placeholder='ID Ruta')
-          input(type='text', name='name', placeholder='Nombre Estación')
-          input(type='number', step='any', name='latitude', placeholder='Latitud')
-          input(type='number', step='any', name='longitude', placeholder='Longitud')
-          input(type='text', name='nombrenext', placeholder='Nombre Siguiente Estación')
-          button(type='submit') Añadir Estación
+          input(type='text', name='name', placeholder='Nombre estación')
+          input(type='number', step='any', name='lon', placeholder='Latitud')
+          input(type='number', step='any', name='lat', placeholder='Longitud')
+          //input(type='number', step='any', name='lat', placeholder='Distancia')
+          //input(type='file', name='iconB64', placeholder='Icono')
+          input(type='number', name='idRoute', placeholder='Id Ruta')
+          button(type='submit') Añadir Estacion
 
       // Vehículos Section
       section#vehicles
@@ -175,17 +180,24 @@ html(lang='en')
         table#vehiclesTable
           thead
             tr
-              th ID Vehículo
-              th Identificador
-              th ID Conductor
+              th ID
+              th Identificador de Vehiculo
+              th ID Ruta
+              th Ruta
+              th ID Conductor 
+              th Username
+              //th Driver Token
               th Borrar
           tbody
             // Los datos se llenarán dinámicamente desde el backend
 
         form#addVehicleForm
-          input(type='text', name='identificador', placeholder='Identificador Vehículo')
-          input(type='number', name='idconductor', placeholder='ID Conductor')
-          button(type='submit') Añadir Vehículo
+          input(type='text', name='id', placeholder='ID Vehiculo')
+          input(type='text', name='identifier', placeholder='Identificador')
+          //input(type='text', name='idruta', placeholder='ID Ruta')
+          input(type='text', name='idcondutr', placeholder='ID Conductor')
+          //input(type='text', name='driverToken', placeholder='Driver Token (Optional)')
+          button(type='submit') Añadir vehiculo
 
       // Conductores Section
       section#drivers
@@ -196,7 +208,11 @@ html(lang='en')
               th ID Conductor
               th CURP
               th Nombre
-              th Teléfono
+              th Apellido Paterno
+              th Apellido Materno
+              th Username
+              //th Password
+              th Telefono
               th Activo
               th Borrar
           tbody
@@ -205,10 +221,13 @@ html(lang='en')
         form#addDriverForm
           input(type='text', name='curp', placeholder='CURP')
           input(type='text', name='name', placeholder='Nombre')
-          input(type='text', name='surnamep', placeholder='Apellido Paterno')
-          input(type='text', name='surnamem', placeholder='Apellido Materno')
-          input(type='text', name='phone', placeholder='Teléfono')
-          input(type='number', name='active', placeholder='Activo')
+          input(type='text', name='surnameP', placeholder='Apellido Paterno')
+          input(type='text', name='surnameM', placeholder='Apellido Materno')
+          //input(type='text', name='username', placeholder='Username')
+          input(type='text', name='password', placeholder='Password')
+          input(type='text', name='password', placeholder='Salt')
+          input(type='text', name='phone', placeholder='Telefono')
+          input(type='number', name='status', placeholder='Estatus')
           button(type='submit') Añadir Conductor
           
     footer
