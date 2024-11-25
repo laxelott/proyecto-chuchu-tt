@@ -41,7 +41,6 @@ import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
-import com.google.android.gms.maps.model.BitmapDescriptor
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
@@ -51,9 +50,7 @@ import com.google.android.gms.maps.model.MarkerOptions
 import com.google.android.gms.maps.model.Polyline
 import com.google.android.gms.maps.model.PolylineOptions
 import com.google.maps.android.PolyUtil
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -112,7 +109,10 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
     private var gettingInfoJob: Job? = null
     private var incidentsMarkers = mutableMapOf<Incident, Marker>()
     private var alertErrorFlag = false
-    private var busStopCounter:Int = 0
+    private var busStopCounter: Int = 0
+    private var checkRange = false
+    private var isLocationPermissionRequested = false  // Control para manejar permisos de ubicación
+
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -124,6 +124,9 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
         val mapFragment = supportFragmentManager.findFragmentById(R.id.map) as SupportMapFragment
         mapFragment.getMapAsync(this)
+
+        checkRange = intent.getBooleanExtra("checkRange", false)
+        Log.d("UsingVehicle", "Using vehicle: $checkRange")
 
         // Construct a FusedLocationProviderClient
         fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this)
@@ -146,8 +149,10 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
         token = intent.getStringExtra("token").toString()
         routeID = intent.getIntExtra("idRoute", 0)
         vehicleIdentifier = intent.getStringExtra("vehicleIdentifier").toString()
+    }
 
-
+    override fun onBackPressed() {
+        // No hacer nada aquí bloquea el botón "Atrás"
     }
 
     private fun updateCurrentLocation() {
@@ -181,29 +186,72 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
                             LatLng(currentLocation.latitude, currentLocation.longitude),
                             LatLng(busStops[0].latitude, busStops[0].longitude)
                         )
-                        Log.d("Distancia", "$distance")
-                        if (distance <= 20f) {
-                            setupMapMarkersAndRoutes()
-                            CoroutineScope(Dispatchers.IO).launch {
-                                val startT = ApiService.StartTrip(token, routeID)
-                                val response = ApiHelper().prepareApi().startTrip(startT)
-                                if (response.isSuccessful) {
-                                    Log.d("API Response", "Ubicacion enviada")
-                                    startTravel()
-                                } else {
-                                    Log.e(
-                                        "API Error",
-                                        "Error al enviar ubicacion: ${response.code()} ${response.message()}"
-                                    )
-                                }
-                            }
-                        } else {
+                        Log.d("Distancia", "$distance, $checkRange")
+
+                        if (checkRange && distance >= 10f) {
                             showAlertDialog(this@MapaActivity)
+                        }
+                        setupMapMarkersAndRoutes()
+                        CoroutineScope(Dispatchers.IO).launch {
+                            val tokenRequest = TokenRequest(token)
+                            val response = ApiHelper().prepareApi().startTrip(tokenRequest, routeID)
+                            if (response.isSuccessful) {
+                                Log.d("API Response", "Ubicacion enviada")
+                                useVehicle(token, vehicleIdentifier)
+                                startTravel()
+                            } else {
+                                Log.e(
+                                    "API Error",
+                                    "Error al enviar ubicacion: ${response.code()} ${response.message()}"
+                                )
+                            }
                         }
                     }
                 }
             }
         )
+    }
+
+    private fun useVehicle(token: String, vehicleIdentifier: String) {
+        val service = ApiHelper().prepareApi()
+        val tokenRequest = TokenRequest(token)
+        Log.d("Debug", "enviando vehiculo a utilizar: $vehicleIdentifier")
+        ApiHelper().getDataFromDB(
+            serviceCall = {
+                service.postUseVehicle(
+                    vehicleIdentifier,
+                    tokenRequest
+                )
+            }, // Pasamos la función que hace la solicitud
+            processResponse = { response ->
+                val responseBody = response.body()
+                Log.d("Response", "$responseBody")
+                if (responseBody != null) {
+                    when (responseBody.error) {
+                        0 -> {
+                        }
+
+                        2 -> {
+                            if (checkRange) newAlertDialog(
+                                "¡Alerta!",
+                                "Este vehículo ya está en uso"
+                            )
+                        }
+                    }
+                }
+            }
+        )
+    }
+
+    private fun newAlertDialog(title: String, message: String) {
+        AlertDialog.Builder(this)
+            .setTitle(title)
+            .setMessage(message)
+            .setPositiveButton("OK") { dialog, _ ->
+                dialog.dismiss()
+            }
+            .setCancelable(false)
+            .show()
     }
 
     private fun setupMapMarkersAndRoutes() {
@@ -396,12 +444,11 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
             ApiHelper().prepareApi()
         }
         Log.d("Debug", "Solicitud de los tiempos del vehiculo")
+        Log.d("Debug", "Datos: $routeID, ${busStops[busStopCounter].id}, $vehicleIdentifier")
+        val tokenRequest = TokenRequest(token)
         ApiHelper().getDataFromDB(
             serviceCall = {
-                service.getWaitTime(
-                    routeID,
-                    busStops[busStopCounter].id,
-                )
+                service.getWaitTimeForVehicle(tokenRequest)
             },
             processResponse = { response ->
                 val waitTime = response.body()
@@ -411,8 +458,7 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
                 }
 
                 Log.d("Info", "Informacion del conductor recibida correctamente")
-                val info = waitTime[0]
-                if (info.error == 1) {
+                if (waitTime.error == 1) {
                     if (!alertErrorFlag) {
                         // Show error dialog on the Main thread
                         CoroutineScope(Dispatchers.Main).launch {
@@ -426,7 +472,7 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
                         return@getDataFromDB
                     }
                 }
-                Log.d("Info", "Informacion: $info")
+                Log.d("Info", "Informacion: $waitTime")
                 Log.d("Transport response", "Tiempos de conductor")
                 // Update the UI fragment on the Main thread
                 CoroutineScope(Dispatchers.Main).launch {
@@ -437,11 +483,11 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
                         supportFragmentManager.findFragmentById(R.id.info_fragment_container)
                     if (infoFragment is InfoFragment) {
                         val startTravelFragment = infoFragment
-                        startTravelFragment.updateData(info)
-                        if(info.nextName == busStops[busStopCounter].name && info.nextDistance < 10f && busStopCounter > 0){
+                        startTravelFragment.updateData(waitTime)
+                        if (waitTime.nextName == busStops[0].name && waitTime.nextDistance < 10f && busStopCounter > 0) {
                             endTravel()
                         }
-                        if (info.nextDistance < 10f){
+                        if (waitTime.nextName == busStops[busStopCounter].name && waitTime.nextDistance < 10f) {
                             busStopCounter += 1
                         }
                     }
@@ -488,6 +534,10 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
         gettingIncidentsJob?.cancel()
         gettingInfoJob?.cancel()
         leaveVehicle()
+        val sharedPreferences = getSharedPreferences("vehicleIsSelected", Context.MODE_PRIVATE)
+        val editor = sharedPreferences.edit()
+        editor.clear()
+        editor.apply()
 
         val cameraPosition = CameraPosition.Builder()
             .target(currentLocation)
@@ -641,6 +691,20 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
                 setMessage("No estas dentro del rango para iniciar recorrido")
                 setPositiveButton("OK") { dialog, _ ->
                     dialog.dismiss()
+                    sendingDataJob?.cancel()
+                    gettingIncidentsJob?.cancel()
+                    gettingInfoJob?.cancel()
+                    leaveVehicle()
+                    val sharedPreferences = context.getSharedPreferences("vehicleIsSelected", Context.MODE_PRIVATE)
+                    val editor = sharedPreferences.edit()
+                    editor.clear()
+
+                    // Usar commit() en lugar de apply() para asegurar que los cambios se guarden antes de cerrar la actividad
+                    if (editor.commit()) {
+                        Log.d("SharedPreferences", "Preferences cleared successfully.")
+                    } else {
+                        Log.e("SharedPreferences", "Failed to clear preferences.")
+                    }
                     if (!context.isFinishing) {
                         context.finish()
                     }
@@ -675,7 +739,7 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
     private suspend fun sendLatitudeLongitude(latitude: Double, longitude: Double) {
         try {
             val bodyDriver = ApiService.BodyDriver(token, speed)
-            Log.d("Debug","Token para enviar la ubicacion: ")
+            Log.d("Debug", "Token para enviar la ubicacion: ")
             val tokenRequest = TokenRequest(token)
             val response =
                 ApiHelper().prepareApi().postLatitudeLongitude(latitude, longitude, bodyDriver)
@@ -902,9 +966,14 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
                             val incidentResponse = response.body()
                             runOnUiThread {
                                 if (incidentResponse != null) {
-                                    Toast.makeText(this, "Incidencia eliminada", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(this, "Incidencia eliminada", Toast.LENGTH_SHORT)
+                                        .show()
                                 } else {
-                                    Toast.makeText(this, "Error al eliminar incidencia", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(
+                                        this,
+                                        "Error al eliminar incidencia",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
                                 }
                             }
                         }
@@ -919,7 +988,6 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
 
-
     private fun showReportIncident() {
         val dialogFragment = ReportIncidentDialogFragment(
             routeID,
@@ -931,31 +999,22 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun showEndTravelWindow() {
-        val dialogFragment = EndTravelDialogFragment(sendingDataJob, gettingIncidentsJob, gettingInfoJob, token)
+        val dialogFragment =
+            EndTravelDialogFragment(sendingDataJob, gettingIncidentsJob, gettingInfoJob, token)
         dialogFragment.show(supportFragmentManager, "endTravelDialog")
     }
 
 
-    private fun isLocationPermissionGranted() = ContextCompat.checkSelfPermission(
-        this,
-        Manifest.permission.ACCESS_FINE_LOCATION
-    ) == PackageManager.PERMISSION_GRANTED
-
-    private fun enableLocation() {
-        if (!::mMap.isInitialized) return
-        if (isLocationPermissionGranted()) {
-            mMap.isMyLocationEnabled = true
-
-            fusedLocationProviderClient.lastLocation.addOnSuccessListener(this) { location ->
-                if (location != null) {
-                    lastLocation = location
-                    currentLocation = LatLng(location.latitude, location.longitude)
-                    mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLocation, 18f))
-                }
-            }
-        } else {
-            requestLocationPermission()
-        }
+    /*
+    *
+    * PERMISOS
+    *
+    * */
+    private fun isLocationPermissionGranted(): Boolean {
+        return ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
     }
 
     private fun requestLocationPermission() {
@@ -964,12 +1023,10 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
                 Manifest.permission.ACCESS_FINE_LOCATION
             )
         ) {
-            Toast.makeText(
-                this,
-                "Habilita los permisos de localización en ajustes",
-                Toast.LENGTH_SHORT
-            ).show()
+            // Mostrar explicación si es necesario
+            Toast.makeText(this, "Necesitamos el permiso de ubicación", Toast.LENGTH_SHORT).show()
         } else {
+            // Solicitar el permiso
             ActivityCompat.requestPermissions(
                 this,
                 arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
@@ -978,48 +1035,39 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
         }
     }
 
-    //metodo para capturar la respuesta de que el usuario acepto los permisos
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        when (requestCode) {
-            REQUEST_CODE_LOCATION -> if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                mMap.isMyLocationEnabled = true
-                //Go to my current location
-                fusedLocationProviderClient.lastLocation.addOnSuccessListener(this) { location ->
-                    if (location != null) {
-                        lastLocation = location
-                        currentLocation = LatLng(location.latitude, location.longitude)
-                        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLocation, 16f))
-                    }
+    // Habilitar la ubicación en el mapa
+    private fun enableLocation() {
+        if (isLocationPermissionGranted()) {
+            // Habilitar la ubicación en el mapa
+            mMap.isMyLocationEnabled = true
+            // Obtener la última ubicación conocida
+            fusedLocationProviderClient.lastLocation.addOnSuccessListener { location ->
+                if (location != null) {
+                    // Crear un objeto LatLng con la ubicación
+                    val currentLocation = LatLng(location.latitude, location.longitude)
+
+                    // Mover la cámara para centrarla en la ubicación
+                    mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLocation, 16f))
+                } else {
+                    Toast.makeText(this, "No se pudo obtener la ubicación", Toast.LENGTH_SHORT).show()
                 }
-            } else {
-                Toast.makeText(
-                    this,
-                    "Ve a ajustes para aceptar los permisos de localizacion",
-                    Toast.LENGTH_SHORT
-                ).show()
             }
-
-            else -> {}
         }
     }
 
-    //Metodo para comprobar que los permisos siguen activos despues de que el usuario dejo la aplicacion en background
-    override fun onResumeFragments() {
-        super.onResumeFragments()
-        if (!::mMap.isInitialized) return
-        if (!isLocationPermissionGranted()) {
-            mMap.isMyLocationEnabled = false
-            Toast.makeText(
-                this,
-                "Ve a ajustes para aceptar los permisos de localizacion",
-                Toast.LENGTH_SHORT
-            ).show()
+    // Manejar la respuesta de los permisos
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQUEST_CODE_LOCATION) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                // Si se concede el permiso, habilitar la ubicación
+                enableLocation()
+            } else {
+                // Si el permiso es denegado
+                Toast.makeText(this, "Permiso de ubicación denegado", Toast.LENGTH_SHORT).show()
+            }
         }
     }
+
 
 }
