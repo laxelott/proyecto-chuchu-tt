@@ -7,15 +7,11 @@ export class AdminDAO {
         return results;
     }
 
-    static async addTransportAdmin(name: string, iconB64: string) {
-        const results = await SQLPool.query("CALL addTransportAdmin(?, ?)", [name, iconB64]);
+    static async addTransportAdmin(name: string) {
+        const results = await SQLPool.query("CALL upsertTransport(?)", [name]);
         return results;
     }
 
-    static async updateTransportAdmin(idTransport: number, name: string, iconB64: string) {
-        const results = await SQLPool.query("CALL updateTransportAdmin(?, ?, ?)", [idTransport, name, iconB64]);
-        return results;
-    }
 
     // Rutas
     static async getRoutesAdmin() {
@@ -23,13 +19,8 @@ export class AdminDAO {
         return results;
     }
 
-    static async addRouteAdmin(name: string, description: string, color: string, iconB64: string, idTransport: number) {
-        const results = await SQLPool.query("CALL addRouteAdmin(?, ?, ?, ?, ?)", [name, description, color, iconB64, idTransport]);
-        return results;
-    }
-
-    static async updateRouteAdmin(idRoute: number, name: string, description: string, color: string, iconB64: string) {
-        const results = await SQLPool.query("CALL updateRouteAdmin(?, ?, ?, ?, ?)", [idRoute, name, description, color, iconB64]);
+    static async addRouteAdmin(idruta: number, idtransport: number, nombreruta: string, description: string, color: string) {
+        const results = await SQLPool.query("CALL upsertRoute(?, ?, ?, ?, ?)", [idruta, idtransport, nombreruta, description, color]);
         return results;
     }
 
@@ -41,15 +32,11 @@ export class AdminDAO {
         return results;
     }
 
-    static async addVehicle(name: string, description: string, color: string, iconB64: string, idTransport: number) {
-        const results = await SQLPool.query("CALL addVehicle(?, ?, ?, ?, ?)", [name, description, color, iconB64, idTransport]);
+    static async addVehicle(identificador: string, idconductor: number, curp: string) {
+        const results = await SQLPool.query("CALL upsertVehicle(?, ?, ?)", [identificador, idconductor, curp]);
         return results;
     }
 
-    static async updateVehicle(idRoute: number, name: string, description: string, color: string, iconB64: string) {
-        const results = await SQLPool.query("CALL updateVehicle(?, ?, ?, ?, ?)", [idRoute, name, description, color, iconB64]);
-        return results;
-    }
 
     // Conductores
     static async getDriversAdmin() {
@@ -57,15 +44,11 @@ export class AdminDAO {
         return results;
     }
 
-    static async addDriver(name: string, description: string, color: string, iconB64: string, idTransport: number) {
-        const results = await SQLPool.query("CALL addDriverAdmin(?, ?, ?, ?, ?)", [name, description, color, iconB64, idTransport]);
+    static async upsertDriver(curp: string, name: string, surnamep: string, surnamem: string, password: string, salt: string, phone: string, active: number) {
+        const results = await SQLPool.query("CALL upsertDriver(?, ?, ?, ?, ?, ?, ?, ?)", [curp, name, surnamep, surnamem, password, salt, phone, active]);
         return results;
     }
 
-    static async updateDriver(idRoute: number, name: string, description: string, color: string, iconB64: string) {
-        const results = await SQLPool.query("CALL updateDriverAdmin(?, ?, ?, ?, ?)", [idRoute, name, description, color, iconB64]);
-        return results;
-    }
 
     // Estaciones
     static async getStopsAdmin() {
@@ -73,13 +56,9 @@ export class AdminDAO {
         return results;
     }
 
-    static async addStops(name: string, description: string, color: string, iconB64: string, idTransport: number) {
-        const results = await SQLPool.query("CALL addStopsAdmin(?, ?, ?, ?, ?)", [name, description, color, iconB64, idTransport]);
+    static async addStops(idruta: number, name: string, latitude: number, longitude: number, nombrenext: string) {
+        const results = await SQLPool.query("CALL upsertStop(?, ?, ?, ?, ?)", [idruta, name, latitude, longitude, nombrenext]);
         return results;
     }
 
-    static async updateStops(idRoute: number, name: string, description: string, color: string, iconB64: string) {
-        const results = await SQLPool.query("CALL updateStopsAdmin(?, ?, ?, ?, ?)", [idRoute, name, description, color, iconB64]);
-        return results;
-    }
 }

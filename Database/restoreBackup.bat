@@ -1,5 +1,6 @@
 @echo off
 echo Running...
-mysqlsh --user root --password --host localhost --file chuchu_database.sql
-mysqlsh --user root --password --host localhost --file chuchu_sproc.sql
-mysqlsh --user root --password --host localhost --file chuchu_data.sql
+echo NO
+@REM mysqlsh --user root --password --host localhost --file chuchu_database.sql
+@REM mysqlsh --user root --password --host localhost --file chuchu_sproc.sql
+@REM mysqlsh --user root --password --host localhost --file chuchu_data.sql

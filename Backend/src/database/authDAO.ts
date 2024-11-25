@@ -99,4 +99,22 @@ export class AuthDAO {
     
         return results[0];
     }
+
+    static async checkToken(token: string, username: string) {
+        const results: any = await SQLPool.query(
+            "CALL checkToken(?,?)",
+            [token, username]
+        );
+    
+        return results[0];
+    }
+
+    static async checkVehicle(token: string, identifier: string) {
+        const results: any = await SQLPool.query(
+            "CALL checkVehicle(?,?)",
+            [token, identifier]
+        );
+    
+        return results[0];
+    }
 }
