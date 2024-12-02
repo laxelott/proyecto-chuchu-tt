@@ -12,6 +12,11 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffColorFilter
+import android.graphics.RectF
 import android.location.Location
 import android.net.Uri
 import android.os.Build
@@ -453,6 +458,57 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
             busStopMarkers[busStop] = marker
         }
     }
+    // Add a marker with color
+    private fun createMarker(busStop: BusStop, markerColor: Int) {
+        val location = LatLng(busStop.latitude, busStop.longitude)
+        val originalBitmap = BitmapFactory.decodeResource(this.resources, R.mipmap.ic_bus_station)
+        val resizedBitmap = Bitmap.createScaledBitmap(originalBitmap, 100, 100, false)
+        val outlineWidth = 20f
+
+        // Create a new bitmap with extra space for the outline
+        val outlineBitmap = Bitmap.createBitmap(
+            resizedBitmap.width + outlineWidth.toInt() * 2,
+            resizedBitmap.height + outlineWidth.toInt() * 2,
+            Bitmap.Config.ARGB_8888
+        )
+        
+        val canvas = Canvas(outlineBitmap)
+        val paint = Paint().apply {
+            isAntiAlias = true
+            color = markerColor
+            style = Paint.Style.STROKE
+            strokeWidth = outlineWidth
+        }
+
+        // Draw the outline (circle or rectangle depending on your needs)
+        val rect = RectF(
+            outlineWidth / 2,
+            outlineWidth / 2,
+            canvas.width - outlineWidth / 2,
+            canvas.height - outlineWidth / 2
+        )
+        canvas.drawOval(rect, paint)
+
+        // Draw the original bitmap centered inside the outline
+        canvas.drawBitmap(resizedBitmap, outlineWidth, outlineWidth, null)
+
+        // Create a marker icon from the modified bitmap
+        val markerIcon = BitmapDescriptorFactory.fromBitmap(outlineBitmap)
+        val marker = mMap.addMarker(
+            MarkerOptions()
+                .position(location)
+                .title(busStop.name)
+                .icon(markerIcon)
+        )
+
+        // Attach metadata to the marker and store it in your map
+        marker?.tag = MarkerTag(type = "busStop", mode = infoWindowMode)
+        if (marker != null) {
+            busStopMarkers[busStop] = marker
+        }
+    }
+
+
 
     private fun latLangToStr(latLng: LatLng) = "${latLng.latitude},${latLng.longitude}"
 
@@ -844,7 +900,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         if (response.nextName == busStops.last().name && !alertShown) {
             alertUserForFinalDestination()
             alertShown = true
-        } else if (response.totalDistance < 10f && alertShown) { // Bajaaan
+        } else if (response.nextDistance < 10f && alertShown) { // Bajaaan
             arrivalAlert()
             showNotification(this)
             endTravel() // Stop API call here
@@ -1137,10 +1193,17 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun createNewMarkers(busStops: List<BusStop>) {
-        for ((i, busStop) in busStops.withIndex()) {
+        // Create first and last stops with custom colors
+        createMarker(busStops.first(), Color.GREEN)
+        createMarker(busStops.last(), Color.RED)
+        
+        // Remove first and last stops
+        busStops.withIndex().filter { it.index != 0 && it.index != busStops.lastIndex }
+        for ((i, busStop) in busStops.subList(1, busStops.size - 1).withIndex()) {
             Log.d("Debug", "Creando marker para: ${busStop.name}")
             createMarker(busStop)
         }
+
     }
 
     fun onStartTravelClicked(driverIdentifier: String) {
