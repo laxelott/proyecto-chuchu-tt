@@ -3,17 +3,24 @@ package com.example.pasajero
 import android.Manifest
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
+import android.app.Activity
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.location.Location
+import android.net.Uri
+import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.os.Looper
 import android.os.VibrationEffect
 import android.os.Vibrator
+import android.provider.Settings
 import android.text.Editable
 import android.text.TextWatcher
 import android.util.Log
@@ -23,8 +30,11 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.Toast
+import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AlertDialog
 import androidx.core.app.ActivityCompat
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
@@ -93,11 +103,6 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         }
     }
 
-    //Variables to ask for the location permission
-    companion object {
-        const val REQUEST_CODE_LOCATION = 0
-    }
-
     private lateinit var fusedLocationProviderClient: FusedLocationProviderClient
     private lateinit var lastLocation: Location
     private var currentLocation: LatLng = LatLng(0.0, 0.0)
@@ -112,6 +117,10 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
     private var alertShown = false
     private var hasDrawnRoutes = false
     private var alertErrorFlag = false
+    private val NOTIFICATION_PERMISSION_REQUEST_CODE = 1001
+    private val REQUEST_CODE_LOCATION = 1002
+    private var isNotificationPermissionRequested = false  // Control para manejar permisos de notificación
+    private var isLocationPermissionRequested = false  // Control para manejar permisos de ubicación
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -124,8 +133,9 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
             .findFragmentById(R.id.map) as SupportMapFragment
         mapFragment.getMapAsync(this)
 
-        // Construct a FusedLocationProviderClient.
         fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this)
+        // Iniciar el flujo de solicitud de permisos
+        requestPermissionsFlow()
         btnLocation = findViewById(R.id.location_button)
         btnCancelTravel = findViewById(R.id.btn_cancel_travel)
         // Get all the busStops from the line selected
@@ -245,6 +255,9 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
     override fun onDestroy() {
         super.onDestroy()
+        fusedLocationProviderClient.removeLocationUpdates(locationCallback)
+        val intent = Intent(this, MyService::class.java)
+        stopService(intent)
         stopJobs()
     }
 
@@ -827,14 +840,79 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private fun showDropAndDestination(busStops: List<BusStop>, response: InfoResponse) {
         Log.d("Info", "bus stops on travel: ${busStops.size}")
-        if (response.nextName == busStops.last().name) {
+        if (response.nextName == busStops.last().name && !alertShown) {
             alertUserForFinalDestination()
             alertShown = true
         } else if (response.totalDistance < 10f) {
             arrivalAlert()
+            showNotification(this)
             endTravel() // Stop API call here
             alertShown = true
         }
+    }
+
+    fun showNotification(context: Context) {
+        // Crear el canal de notificación (si aún no existe)
+        createNotificationChannel(context)
+
+        // Verificar si la versión es Android 13 o superior antes de solicitar el permiso
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            // Verificar si el permiso de notificación está concedido
+            if (ActivityCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
+                // Crear y mostrar la notificación
+                createAndShowNotification(context)
+            } else {
+                // Solicitar el permiso si es necesario
+                if (context is Activity) {
+                    ActivityCompat.requestPermissions(
+                        context,
+                        arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                        NOTIFICATION_PERMISSION_REQUEST_CODE
+                    )
+                }
+            }
+        } else {
+            // En versiones anteriores a Android 13 no se necesita permiso de notificación
+            createAndShowNotification(context)
+        }
+    }
+
+    // Función para crear y mostrar la notificación
+    private fun createAndShowNotification(context: Context) {
+        val channelId = "mi_canal_id"
+        val notificationId = 1
+
+        val notification = NotificationCompat.Builder(context, channelId)
+            .setSmallIcon(R.drawable.bus_logo)
+            .setContentTitle("Nintrip")
+            .setContentText("Prepárate para bajar")
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .build()
+
+        try {
+            // Envolver en try-catch para manejar posibles SecurityException
+            with(NotificationManagerCompat.from(context)) {
+                notify(notificationId, notification)
+            }
+        } catch (e: SecurityException) {
+            Log.e("NotificationError", "No se pudo mostrar la notificación: permiso no otorgado.")
+        }
+    }
+
+    // Función para crear el canal de notificación
+    private fun createNotificationChannel(context: Context) {
+        val channelId = "mi_canal_id"
+        val channelName = "Canal de Notificaciones"
+        val channelDescription = "Descripción del canal de notificaciones"
+
+        val importance = NotificationManager.IMPORTANCE_DEFAULT
+        val channel = NotificationChannel(channelId, channelName, importance).apply {
+            description = channelDescription
+        }
+        // Registrar el canal en el sistema
+        val notificationManager: NotificationManager =
+            context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.createNotificationChannel(channel)
     }
 
 
@@ -924,6 +1002,9 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
                     "Info",
                     "estacion mas cercana ${closestBusStop.name}, ${closestBusStop.id}"
                 )
+                val searchBar = findViewById<LinearLayout>(R.id.searchContainer)
+                searchBar.visibility = View.GONE
+
                 busStopsToBeVisited(closestBusStop, marker, busStops)
 
 
@@ -1218,92 +1299,203 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         }
     }
 
+    // Iniciar el servicio en primer plano
+    private fun startMyService() {
+        val serviceIntent = Intent(this, MyService::class.java)
+        ContextCompat.startForegroundService(this, serviceIntent)
+    }
 
-    private fun isLocationPermissionGranted() = ContextCompat.checkSelfPermission(
-        this,
-        Manifest.permission.ACCESS_FINE_LOCATION
-    ) == PackageManager.PERMISSION_GRANTED
 
+    /*
+    *
+    * PERMISOS
+    *
+    * */
+    // Flujo de permisos: Primero verificamos y pedimos el permiso de notificación
+    private fun requestPermissionsFlow() {
+        if (checkNotificationPermission()) {
+            // Si ya tiene permiso de notificación, pasamos al permiso de ubicación
+            checkAndRequestLocationPermission()
+        } else {
+            // Si no tiene permiso de notificación, pedimos el permiso
+            requestNotificationPermission()
+        }
+    }
+
+    // Verifica si el permiso de notificación está concedido
+    private fun checkNotificationPermission(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+        } else {
+            true // No es necesario en versiones anteriores
+        }
+    }
+
+    // Solicita el permiso de notificación
+    private fun requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            isNotificationPermissionRequested = true
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                NOTIFICATION_PERMISSION_REQUEST_CODE
+            )
+        } else {
+            // Si no es necesario el permiso explícito, pasamos al permiso de ubicación
+            showNotification()
+            checkAndRequestLocationPermission()
+        }
+    }
+
+    // Verifica si el permiso de ubicación está concedido
+    private fun isLocationPermissionGranted(): Boolean {
+        return ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+    }
+
+    // Solicita el permiso de ubicación
+    private fun requestLocationPermission() {
+        isLocationPermissionRequested = true
+        ActivityCompat.requestPermissions(
+            this,
+            arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
+            REQUEST_CODE_LOCATION
+        )
+    }
+
+    // Verifica si el permiso de ubicación está concedido y lo solicita si no lo está
+    private fun checkAndRequestLocationPermission() {
+        if (isLocationPermissionGranted()) {
+            enableLocation()
+        } else {
+            if (isLocationPermissionRequested) {
+                // Solo muestra el Toast si ya se ha solicitado anteriormente y el permiso aún está denegado
+                Toast.makeText(this, "Permiso de localización denegado", Toast.LENGTH_SHORT).show()
+                // Luego, pedimos al usuario que habilite el permiso de ubicación
+                showLocationPermissionDeniedDialog()
+            } else {
+                // Solicita el permiso de ubicación si no se ha solicitado antes
+                requestLocationPermission()
+            }
+        }
+    }
+
+    // Activa la ubicación en el mapa si el permiso está concedido
     private fun enableLocation() {
         if (!::mMap.isInitialized) return
         if (isLocationPermissionGranted()) {
             mMap.isMyLocationEnabled = true
+            getLastLocation()
+        }
+    }
 
-            fusedLocationProviderClient.lastLocation.addOnSuccessListener(this) { location ->
-                if (location != null) {
-                    lastLocation = location
-                    currentLocation = LatLng(location.latitude, location.longitude)
-                    mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLocation, 16f))
+    // Muestra una notificación simple si el permiso está concedido
+    private fun showNotification() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channelId = "mi_canal_id"
+            val channelName = "Notificaciones de mi aplicación"
+            val importance = NotificationManager.IMPORTANCE_DEFAULT
+            val channel = NotificationChannel(channelId, channelName, importance)
+            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.createNotificationChannel(channel)
+        }
+
+        val notification = NotificationCompat.Builder(this, "mi_canal_id")
+            .setSmallIcon(R.drawable.bus_logo)
+            .setContentTitle("Título de la notificación")
+            .setContentText("Contenido de la notificación")
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .build()
+
+        NotificationManagerCompat.from(this).notify(1, notification)
+    }
+
+    // Muestra un diálogo si el permiso de notificación ha sido denegado
+    private fun showNotificationPermissionDeniedDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("Permiso de Notificación Requerido")
+            .setMessage("Para recibir notificaciones, habilita el permiso en los ajustes de la aplicación.")
+            .setPositiveButton("Ir a ajustes") { _, _ ->
+                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                    data = Uri.fromParts("package", packageName, null)
                 }
+                startActivity(intent)
             }
-        } else {
-            requestLocationPermission()
+            .setNegativeButton("Cancelar", null)
+            .show()
+    }
+
+    /*
+     * Funciones de ubicación
+     */
+
+    // Obtiene la última ubicación del usuario si el permiso está concedido
+    private fun getLastLocation() {
+        fusedLocationProviderClient.lastLocation.addOnSuccessListener(this) { location ->
+            if (location != null) {
+                lastLocation = location
+                currentLocation = LatLng(location.latitude, location.longitude)
+                mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLocation, 16f))
+            }
         }
     }
 
-    private fun requestLocationPermission() {
-        if (ActivityCompat.shouldShowRequestPermissionRationale(
-                this,
-                Manifest.permission.ACCESS_FINE_LOCATION
-            )
-        ) {
-            Toast.makeText(
-                this,
-                "Habilita los permisos de localización en ajustes",
-                Toast.LENGTH_SHORT
-            ).show()
-        } else {
-            ActivityCompat.requestPermissions(
-                this,
-                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
-                REQUEST_CODE_LOCATION
-            )
-        }
+    // Muestra un diálogo si el permiso de ubicación ha sido denegado
+    private fun showLocationPermissionDeniedDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("Permiso de Ubicación Requerido")
+            .setMessage("Para usar la ubicación, habilita el permiso en los ajustes de la aplicación.")
+            .setPositiveButton("Ir a ajustes") { _, _ ->
+                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                    data = Uri.fromParts("package", packageName, null)
+                }
+                startActivity(intent)
+            }
+            .setNegativeButton("Cancelar", null)
+            .show()
     }
 
-    //metodo para capturar la respuesta de que el usuario acepto los permisos
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
+    // Manejador del resultado de la solicitud de permisos
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        when (requestCode) {
-            REQUEST_CODE_LOCATION -> if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                mMap.isMyLocationEnabled = true
-                //Go to my current location
-                fusedLocationProviderClient.lastLocation.addOnSuccessListener(this) { location ->
-                    if (location != null) {
-                        lastLocation = location
-                        currentLocation = LatLng(location.latitude, location.longitude)
-                        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLocation, 16f))
-                    }
-                }
-            } else {
-                Toast.makeText(
-                    this,
-                    "Ve a ajustes para aceptar los permisos de localizacion",
-                    Toast.LENGTH_SHORT
-                ).show()
-            }
 
-            else -> {}
+        when (requestCode) {
+            NOTIFICATION_PERMISSION_REQUEST_CODE -> {
+                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    // El usuario concedió el permiso de notificación
+                    showNotification()
+                    checkAndRequestLocationPermission()
+                } else {
+                    // Si no concedió el permiso, mostramos el diálogo para que lo habilite manualmente
+                    showNotificationPermissionDeniedDialog()
+                }
+            }
+            REQUEST_CODE_LOCATION -> {
+                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    // El permiso de ubicación fue concedido, activa la ubicación en el mapa
+                    enableLocation()
+                } else {
+                    // Si no concedió el permiso, mostramos un mensaje y el diálogo de ajustes
+                    showLocationPermissionDeniedDialog()
+                }
+            }
         }
     }
+
+
+
+    override fun onResume() {
+        super.onResume()
+        // Verificar nuevamente los permisos en caso de que hayan sido habilitados desde los ajustes
+        if (isLocationPermissionGranted()) {
+            // Si los permisos fueron otorgados, iniciar el servicio en primer plano
+            enableLocation()
+            startMyService()
+        }
+    }
+
+
 
     //Metodo para comprobar que los permisos siguen activos despues de que el usuario dejo la aplicacion en background
-    override fun onResumeFragments() {
-        super.onResumeFragments()
-        if (!::mMap.isInitialized) return
-        if (!isLocationPermissionGranted()) {
-            mMap.isMyLocationEnabled = false
-            Toast.makeText(
-                this,
-                "Ve a ajustes para aceptar los permisos de localizacion",
-                Toast.LENGTH_SHORT
-            ).show()
-        }
-    }
 
     private fun endInfoJob() {
         gettingInfoJob?.cancel()

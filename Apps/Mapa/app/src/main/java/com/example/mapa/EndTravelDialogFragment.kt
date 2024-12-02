@@ -1,6 +1,7 @@
 package com.example.mapa
 
 import android.app.Dialog
+import android.content.Context
 import android.os.Bundle
 import android.util.Log
 import android.view.View
@@ -66,6 +67,10 @@ class EndTravelDialogFragment(private val sendingDataJob: Job?, private val gett
                 stopSendingDataPeriodically()
                 (activity as? MapaActivity)?.leaveVehicle()
                 callApi(reason)
+                val sharedPreferences = requireContext().getSharedPreferences("vehicleIsSelected", Context.MODE_PRIVATE)
+                val editor = sharedPreferences.edit()
+                editor.clear()
+                editor.apply()
                 dismiss()
                 requireActivity().finish()
                 dialog.dismiss()

@@ -65,15 +65,17 @@ interface ApiService {
         @Body token: TokenRequest
     ): Response<List<GenericResponse>>
 
-    @POST("location/getWaitTime/{idRoute}/{stopId}/")
-    suspend fun getWaitTime(@Path("idRoute") idRoute: Int, @Path("stopId") stopId: Int): Response<List<InfoResponse>>
-    data class StartTrip (
-        val token: String,
-        val routeId: Int
-    )
-    @POST("driver/startTrip")
+    @POST("driver/getWaitTime")
+    suspend fun getWaitTimeForVehicle(@Body token: TokenRequest): Response<InfoResponse>
+
+    @POST("auth/checkToken/{username}")
+    suspend fun checkLogin(@Body token: TokenRequest, @Path("username") username: String): Response<GenericResponse>
+    @POST("auth/checkVehicle/{vehicleIdentifier}")
+    suspend fun checkVehicle(@Body token: TokenRequest, @Path("vehicleIdentifier") username: String): Response<GenericResponse>
+    @POST("driver/startTrip/{routeId}")
     suspend fun startTrip(
-        @Body token: StartTrip
+        @Body token: TokenRequest,
+        @Path("routeId") routeId: Int
     ): Response<GenericResponse>
     data class CancelTrip (
         val token: String,

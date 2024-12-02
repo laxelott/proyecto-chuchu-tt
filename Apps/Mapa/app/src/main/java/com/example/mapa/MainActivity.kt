@@ -13,7 +13,9 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import com.example.mapa.interfaces.ApiService
 import com.example.mapa.recoveryPassword.RecoveryPasswordActivity
+import com.example.pasajero.interfaces.ApiHelper
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.CoroutineScope
@@ -38,12 +40,9 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
-
         sharedPreferences = getSharedPreferences("UserSession", Context.MODE_PRIVATE)
-
         checkSession()
-
+        setContentView(R.layout.activity_main)
         setupUI()
     }
 
@@ -66,7 +65,32 @@ class MainActivity : AppCompatActivity() {
     private fun checkSession() {
         val isLoggedIn = sharedPreferences.getBoolean("isLoggedIn", false)
         if (isLoggedIn) {
-            goToTransportInformationActivity()
+            val tok = sharedPreferences.getString("token", "")?: ""
+            val user = sharedPreferences.getString("username", "")?: ""
+            val tokenRequest = TokenRequest(tok)
+            val service = ApiHelper().prepareApi()
+            ApiHelper().getDataFromDB(
+                serviceCall = {
+                    service.checkLogin(tokenRequest, user)
+                }, // Pasamos la función que hace la solicitud
+                processResponse = { response ->
+                    val responseBody = response.body()
+                    Log.d("Response", "$responseBody")
+                    if (responseBody != null) {
+                        when (responseBody.error) {
+                            0 -> {
+                                goToTransportInformationActivity()
+                            }
+                            1 -> {
+                                val sharedPreferences = getSharedPreferences("UserSession", Context.MODE_PRIVATE)
+                                val editor = sharedPreferences.edit()
+                                editor.clear()
+                                editor.apply()
+                            }
+                        }
+                    }
+                }
+            )
         }
     }
 
