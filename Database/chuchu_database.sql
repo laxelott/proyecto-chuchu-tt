@@ -112,6 +112,7 @@ CREATE TABLE `Route`(
     `description` varchar(255) NOT NULL,
     `color` varchar(10) NOT NULL,
     `iconB64` TEXT,
+    `idTerminal` int NOT NULL, 
     CONSTRAINT `PK_Route` PRIMARY KEY (`idRoute` ASC),
     CONSTRAINT `FK_Route_Transport` FOREIGN KEY (`idTransport`)
         REFERENCES `Transport` (`idTransport`)
