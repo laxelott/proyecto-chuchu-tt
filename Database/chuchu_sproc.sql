@@ -175,13 +175,14 @@ BEGIN
         `icon` blob
     );
 
-    -- Get stop that's not linked to (start of route)
-    SELECT idStop FROM Stop WHERE idRoute = pIdRoute AND idStop NOT IN (
-        SELECT idNext FROM Stop WHERE idRoute = pIdRoute and idNext IS NOT NULL
-    ) INTO nextStopId;
+    -- Get terminal
+    SELECT idTerminal FROM Route WHERE idRoute = pIdRoute
+        INTO nextStopId;
 
     -- Fill route with linked stops
-    WHILE nextStopId IS NOT NULL DO
+    WHILE
+        (SELECT COUNT(*) FROM temp_StopsInRoute WHERE id = nextStopId) = 0
+    DO
         INSERT INTO temp_StopsInRoute(
             `id`,
             `name`,
@@ -226,7 +227,7 @@ CREATE PROCEDURE getDriverInfo(
 BEGIN
 
     SELECT DISTINCT
-    	d.name,
+        d.name,
         t.name as 'transportName',
         v.identifier AS 'vehicleIdentifier',
         CONCAT(r.name, ' - ', r.description) AS 'routeName',
@@ -316,10 +317,8 @@ sp: BEGIN
     SELECT v.idVehicle FROM Vehicle v
         WHERE driverToken = pToken
         INTO vIdVehicle;
-    SELECT s.idStop FROM Stop s
-        WHERE s.idRoute = pIdRoute AND s.idStop NOT IN (
-            SELECT idNext FROM Stop WHERE idRoute = pIdRoute and idNext IS NOT NULL
-        )
+    SELECT idTerminal FROM Route
+        WHERE idRoute = pIdRoute
         INTO vIdStop;
     
     DELETE FROM Last_Location
@@ -338,9 +337,14 @@ sp: BEGIN
                 SELECT idNext FROM Stop WHERE idStop = vIdStop
         );
     
-    SELECT 0 as error, vIdVehicle, vIdStop, s.distanceTo FROM Stop s WHERE s.idStop = (
-        SELECT idNext FROM Stop WHERE idStop = vIdStop
-    );
+    SELECT
+        0 as error,
+        vIdVehicle,
+        vIdStop,
+        (SELECT s.distanceTo FROM Stop s WHERE s.idStop = (
+                SELECT idNext FROM Stop WHERE idStop = vIdStop
+            )
+        ) as distanceTo;
 
 END$$
 
@@ -564,12 +568,20 @@ sp: BEGIN
             WHERE idVehicle = vIdVehicle
         );
 
-        SET vIdStop = (
-            SELECT s.idStop FROM Stop s
-            INNER JOIN Stop sl ON sl.idNext = s.idStop
-            INNER JOIN Last_Location ll ON sl.idStop = ll.idLastStop
-            WHERE ll.idVehicle = vIdVehicle
+        SET vIdStop = IFNULL(
+            (
+                SELECT s.idStop FROM Stop s
+                INNER JOIN Stop sl ON sl.idNext = s.idStop
+                INNER JOIN Last_Location ll ON sl.idStop = ll.idLastStop
+                WHERE ll.idVehicle = vIdVehicle
+            ),
+            (
+                SELECT idStop FROM Stop s
+                INNER JOIN Vehicle_Route vr ON s.idRoute = vr.idRoute
+                WHERE vr.idVehicle = vIdVehicle AND idNext IS NULL
+            )
         );
+
         -- Check distance to next stop with Haversine
         SET distanceToNext = (
             SELECT
@@ -582,7 +594,8 @@ sp: BEGIN
             WHERE s.idStop = vIdStop
         );
 
-        IF distanceToNext < 10 THEN
+        -- Check if next distance is on trigger or somehow we got past it
+        IF (distanceToNext < 10 OR (SELECT distanceToStop FROM VehicleData WHERE idVehicle = vIdVehicle) < -5) THEN
             UPDATE Last_Location SET
                 idLastStop = vIdStop,
                 lon = (SELECT lon FROM Stop WHERE idStop = vIdStop),
@@ -590,12 +603,17 @@ sp: BEGIN
                 WHERE idVehicle = vIdVehicle;
             UPDATE VehicleData SET
                 direction = vBearing,
-                distanceToStop = (SELECT distanceTo FROM Stop WHERE idStop = (SELECT idNext FROM Stop WHERE idStop = vIdStop))
+                distanceToStop = (
+                    SELECT distanceTo FROM Stop WHERE idStop = IFNULL(
+                        (SELECT idNext FROM Stop WHERE idStop = vIdStop),
+                        defaultIdStop
+                    )
+                )
                 WHERE idVehicle = vIdVehicle;
         ELSE
             UPDATE VehicleData SET
                 direction = vBearing,
-                distanceToStop = GREATEST(distanceToStop - haversineDelta, 0)
+                distanceToStop = distanceToStop - haversineDelta
                 WHERE idVehicle = vIdVehicle;
             UPDATE Last_Location SET
                 lon = pLon,
@@ -612,10 +630,9 @@ sp: BEGIN
         avgSpeed = GREATEST(@alpha * pSpeed + (1 - @alpha) * avgSpeed, 0.1)
         WHERE idVehicle = vIdVehicle;
 
-    SELECT vIdVehicle;
-    
     SELECT 0 AS error, avgSpeed as avgSpeed, distanceToNext
-        FROM VehicleData;
+        FROM VehicleData
+        WHERE idVehicle = vIdVehicle;
 
 END$$
 
@@ -688,6 +705,7 @@ sp: BEGIN
     DECLARE vCurrStop int;
     DECLARE vTotalDistance float;
     DECLARE vDistanceToNext float;
+    DECLARE vTimePadding float;
     DECLARE vIdVehicle int;
     DECLARE vIdNextStop int;
 
@@ -710,37 +728,32 @@ sp: BEGIN
 
     SET vCurrStop = pIdStop;
     SET vTotalDistance = 0;
-    SET vDistanceToNext = 0; 
+    SET vDistanceToNext = 0;
+    SET vTimePadding = 0;
 
     WHILE (SELECT COUNT(*) FROM Last_Location WHERE idLastStop = vCurrStop) = 0 DO
         SET vTotalDistance = vTotalDistance + (SELECT distanceTo FROM Stop WHERE idStop = vCurrStop);
+        SET vTimePadding = vTimePadding + 5;
 
         SET vCurrStop = (SELECT idStop FROM Stop WHERE idNext = vCurrStop);
-        IF vCurrStop IS NULL THEN
-            SET vCurrStop = (SELECT idStop FROM Stop WHERE idRoute = pIdRoute AND idNext IS NULL);
-        END IF;
     END WHILE;
     
     SET vIdVehicle = (SELECT idVehicle FROM Last_Location WHERE idLastStop = vCurrStop LIMIT 1);
     IF (SELECT COUNT(*) FROM Last_Location WHERE idVehicle = vIdVehicle AND idLastStop = pIdStop) = 0 THEN
-        SET vDistanceToNext = (SELECT distanceToStop FROM VehicleData WHERE idVehicle = vIdVehicle);
+        SET vDistanceToNext = (SELECT GREATEST(distanceToStop, 0) FROM VehicleData WHERE idVehicle = vIdVehicle);
     END IF;
     SET vTotalDistance = vTotalDistance + vDistanceToNext;
     SET vIdNextStop = (SELECT idNext FROM Stop WHERE idStop = vCurrStop);
     SET vAvgSpeed = (SELECT avgSpeed FROM VehicleData WHERE idVehicle = vIdVehicle);
-
-    IF vIdNextStop IS NULL THEN
-        SET vIdNextStop = (SELECT idStop FROM Stop WHERE idRoute = pIdRoute AND idNext IS NULL);
-    END IF;
 
     SELECT
         0 AS error,
         identifier as identifier,
         (SELECT name FROM Stop WHERE idStop = vIdNextStop) as nextName,
         vDistanceToNext as nextDistance,
-        (vDistanceToNext/vAvgSpeed) as nextTime,
+        (vDistanceToNext/vAvgSpeed) + vTimePadding as nextTime,
         vTotalDistance as totalDistance,
-        (vTotalDistance / vAvgSpeed) AS totalTime
+        (vTotalDistance / vAvgSpeed) + vTimePadding AS totalTime
     FROM Vehicle v
         INNER JOIN VehicleData vd on vd.idVehicle = v.idVehicle
         WHERE v.idVehicle = vIdVehicle;
@@ -787,21 +800,31 @@ sp: BEGIN
         LEAVE sp;
     END IF;
 
+    -- establecer estación como la estación a la que queremos llegar
     SET vCurrStop = pIdStop;
     SET vTotalDistance = 0;
     SET vDistanceToNext = 0; 
 
 
+    drop table if exists testValues;
+    create table testValues (
+        idStop int
+    );
+
+    -- mientras no haya vehiculos que acaben de haber pasado por la estación
     WHILE (SELECT COUNT(*) FROM Last_Location WHERE idLastStop = vCurrStop AND idVehicle = vIdVehicle) = 0 DO
+        -- le sumas a la distancia total la distancia entre la estación pasada
         SET vTotalDistance = vTotalDistance + (SELECT distanceTo FROM Stop WHERE idStop = vCurrStop);
-        
+
+        insert into testValues values(vCurrStop);
+
+        -- te pasas a la estación anterior
         SET vCurrStop = (SELECT idStop FROM Stop WHERE idNext = vCurrStop);
-        IF vCurrStop IS NULL THEN
-            SET vCurrStop = (SELECT idStop FROM Stop WHERE idRoute = pIdRoute AND idNext IS NULL);
-        END IF;
     END WHILE;
     
-    SET vDistanceToNext = (SELECT distanceToStop FROM VehicleData WHERE idVehicle = vIdVehicle);
+    insert into testValues values(vCurrStop);
+    
+    SET vDistanceToNext = (SELECT GREATEST(distanceToStop, 0) FROM VehicleData WHERE idVehicle = vIdVehicle);
     SET vTotalDistance = vTotalDistance + vDistanceToNext;
     SET vIdNextStop = (SELECT idNext FROM Stop WHERE idStop = vCurrStop);
     SET vAvgSpeed = (SELECT avgSpeed FROM VehicleData WHERE idVehicle = vIdVehicle);
@@ -817,10 +840,12 @@ sp: BEGIN
         vDistanceToNext as nextDistance,
         (vDistanceToNext/vAvgSpeed) as nextTime,
         vTotalDistance as totalDistance,
-        (vTotalDistance / vAvgSpeed) AS totalTime
+        (vTotalDistance / vAvgSpeed) AS totalTime,
+        vCurrStop
     FROM Vehicle v
         INNER JOIN VehicleData vd on vd.idVehicle = v.idVehicle
         WHERE v.idVehicle = vIdVehicle;
+    SELECT * from testValues;
 
 END$$
 
@@ -858,7 +883,7 @@ sp: BEGIN
             WHERE ll.idVehicle = vIdVehicle
     );
     SET vTotalDistance = 0;
-    SET vDistanceToNext = (SELECT distanceToStop FROM VehicleData WHERE idVehicle = vIdVehicle);
+    SET vDistanceToNext = (SELECT GREATEST(distanceToStop, 0) FROM VehicleData WHERE idVehicle = vIdVehicle);
     SET vTotalDistance = vTotalDistance + vDistanceToNext;
     SET vIdNextStop = (SELECT idNext FROM Stop WHERE idStop = vCurrStop);
     SET vAvgSpeed = (SELECT avgSpeed FROM VehicleData WHERE idVehicle = vIdVehicle);
@@ -1182,9 +1207,9 @@ END$$
 -- -----------------------------------------------------------------------------
 DROP PROCEDURE IF EXISTS upsertVehicle$$
 CREATE PROCEDURE upsertVehicle(
-   	`pIdentificador` varchar(255),
-	`pIdconductor` int,
-	`pCurp` varchar(255)
+       `pIdentificador` varchar(255),
+    `pIdconductor` int,
+    `pCurp` varchar(255)
 )
 BEGIN
 
@@ -1200,7 +1225,7 @@ BEGIN
             pIdentificador
         );
        
-       	CALL nuevoStoredProcedure(pCurp, pIdentificador);
+           CALL nuevoStoredProcedure(pCurp, pIdentificador);
         SELECT LAST_INSERT_ID();
     END IF;
 END$$
@@ -1210,7 +1235,7 @@ END$$
 -- -----------------------------------------------------------------------------
 DROP PROCEDURE IF EXISTS upsertTransport$$
 CREATE PROCEDURE upsertTransport(
-   	`pName` varchar(255)
+       `pName` varchar(255)
 )
 BEGIN
 
@@ -1333,7 +1358,7 @@ CREATE PROCEDURE getRoutesAdmin()
 BEGIN
 
     SELECT idRoute, idTransport , name, description , color 
-	FROM Chuchu.Route;
+    FROM Chuchu.Route;
 
 END$$
 
@@ -1345,40 +1370,39 @@ CREATE PROCEDURE getTransportsAdmin()
 BEGIN
 
     SELECT *
-	FROM Chuchu.Transport;
+    FROM Chuchu.Transport;
 
 END$$
 
 -- -----------------------------------------------------------------------------
-  -- getVehiclesAdmin
+  -- getVehiclesAdmin 
 -- -----------------------------------------------------------------------------
 DROP PROCEDURE IF EXISTS getVehiclesAdmin$$
 CREATE PROCEDURE getVehiclesAdmin()
 BEGIN
 
-    WITH VEHICULO_R_D AS
-	(
-		SELECT V.idVehicle, V.identifier, VR.idRoute, DV.idDriver
-		FROM Chuchu.Vehicle V
-		LEFT JOIN
-		Chuchu.Vehicle_Route VR
-		ON V.idVehicle = VR.idVehicle
-		LEFT JOIN
-		Chuchu.Driver_Vehicle DV
-		ON V.idVehicle = DV.idVehicle
-	), VECHDATA AS 
-	(
-		SELECT D.idVehicle, D.identifier, D.idRoute, R.description, D.idDriver, DR.username
-		FROM VEHICULO_R_D AS D
-		LEFT JOIN 
-		Chuchu.Driver AS DR
-		ON D.idDriver = DR.idDriver
-		LEFT JOIN
-		Chuchu.Route AS R
-		ON D.idRoute = R.idRoute
-	)
-	SELECT *
-	FROM VECHDATA;
+    SELECT *
+    FROM (
+        SELECT 
+            D.idVehicle, 
+            D.identifier, 
+            D.idRoute, 
+            R.description, 
+            D.idDriver, 
+            DR.username
+        FROM (
+            SELECT 
+                V.idVehicle, 
+                V.identifier, 
+                VR.idRoute, 
+                DV.idDriver
+            FROM Chuchu.Vehicle V
+            LEFT JOIN Chuchu.Vehicle_Route VR ON V.idVehicle = VR.idVehicle
+            LEFT JOIN Chuchu.Driver_Vehicle DV ON V.idVehicle = DV.idVehicle
+        ) AS D
+        LEFT JOIN Chuchu.Driver DR ON D.idDriver = DR.idDriver
+        LEFT JOIN Chuchu.Route R ON D.idRoute = R.idRoute
+    ) AS VECHDATA;
 
 END$$
 
@@ -1390,7 +1414,7 @@ CREATE PROCEDURE getDriversAdmin()
 BEGIN
 
     SELECT idDriver, curp , name , surnameP , surnameM , username, phone , active
-	FROM Chuchu.Driver;
+    FROM Chuchu.Driver;
 
 END$$
 
@@ -1402,7 +1426,7 @@ CREATE PROCEDURE getStopsAdmin()
 BEGIN
 
     SELECT idStop, idRoute, name , lat , lon , distanceTo, idNext 
-	FROM Chuchu.Stop;
+    FROM Chuchu.Stop;
 
 END$$
 
@@ -1415,36 +1439,854 @@ CREATE PROCEDURE testDriverData(
 )
 BEGIN
 
-    CALL reportLocation(19.496227164140898, -99.13678947678747, pToken, 10);
-    SET @test_trash = (SELECT SLEEP(1));
-    CALL reportLocation(19.496583952117426, -99.13672864809563, pToken, 20);
-    SET @test_trash = (SELECT SLEEP(1));
-    CALL reportLocation(19.49677986660929, -99.13669316469205, pToken, 30);
-    SET @test_trash = (SELECT SLEEP(1));
-    CALL reportLocation(19.497184437256912, -99.13659009384756, pToken, 20);
-    SET @test_trash = (SELECT SLEEP(1));
-    CALL reportLocation(19.49766068251283, -99.13651405797317, pToken, 20);
-    SET @test_trash = (SELECT SLEEP(1));
-    CALL reportLocation(19.49776262111194, -99.13649547142845, pToken, 5);
-    CALL arrivedToStop(pToken, 45);
-    SET @test_trash = (SELECT SLEEP(1));
-    CALL reportLocation(19.49794419908754, -99.13647181582738, pToken, 10);
-    SET @test_trash = (SELECT SLEEP(1));
-    CALL reportLocation(19.498143297505326, -99.13640760776376, pToken, 10);
-    SET @test_trash = (SELECT SLEEP(1));
-    CALL reportLocation(19.498369406574476, -99.1363450433734, pToken, 5);
-    CALL arrivedToStop(pToken, 44);
-    SET @test_trash = (SELECT SLEEP(1));
-    CALL reportLocation(19.498645038658655, -99.1363053323887, pToken, 5);
-    SET @test_trash = (SELECT SLEEP(1));
-    CALL reportLocation(19.498778765510796, -99.13629084727746, pToken, 10);
-    SET @test_trash = (SELECT SLEEP(1));
-    CALL reportLocation(19.499065465676118, -99.13622663921383, pToken, 15);
-    SET @test_trash = (SELECT SLEEP(1));
-    CALL reportLocation(19.49921359389583, -99.1361860867526, pToken, 5);
-    SET @test_trash = (SELECT SLEEP(1));
-    CALL reportLocation(19.499275712141145, -99.13618101769497, pToken, 5);
-    CALL arrivedToStop(pToken, 43);
+	CALL startTrip(pToken, 60001);
+    CALL reportLocation(19.49536191604533, -99.1362979935579, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.495326158585893, -99.13671524732746, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.495569309154284, -99.1368973216996, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.495841065239578, -99.13683663024223, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49634881880768, -99.13674559305615, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.496570513527914, -99.13672283375962, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.497021053475198, -99.13660145084484, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.497435835174837, -99.1365331729553, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.497736193672957, -99.1364724814979, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49789173625311, -99.13644403237728, pToken, 10);   -- esime 1
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49802034202767, -99.13643522327206, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.498250425571573, -99.13634402817226, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.4983566178661, -99.13633061712818, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49849315071383, -99.13631452387528, pToken, 10);   -- esime 2
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49867197332582, -99.13627502252169, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.498842061839227, -99.136241190625, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.499016402379908, -99.13620284780875, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49913546410463, -99.13619382596963, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.499277912838746, -99.13618254867072, pToken, 10);  -- esime
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49951748578027, -99.1361129809769, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49964376941575, -99.13609543761694, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.499797113697788, -99.13606513544975, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.499945947714885, -99.13603642813347, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.5001173321831, -99.13600134140536, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50029446371262, -99.13596607273058, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.500462841062802, -99.13595490877425, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50063723170506, -99.1359054683962, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.500838682741456, -99.13586400227014, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.500957448526822, -99.135849648612, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.501052160419768, -99.1358193464448, pToken, 10);   -- edif 6 esiqie
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.501166033522917, -99.13581284362465, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.501378759089324, -99.13576180839571, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.501528343330733, -99.13573948048302, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50171400800896, -99.13569801435418, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.501927484532274, -99.13566213020881, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.502105631984318, -99.13564219456775, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.502230410252228, -99.13559993101731, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.502341658261315, -99.1355664391483, pToken, 10);   -- edif 8 esiqie
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.502553630614532, -99.13554092152434, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50267465016275, -99.1355098219317, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50282423320596, -99.13548350689177, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.503008393051783, -99.13545400214619, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.503163989159756, -99.13542688968082, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.503339880236897, -99.13539180295825, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.503436094079632, -99.1352514560765, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.503531556192492, -99.13519563628145, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.503737513627623, -99.13521716676865, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50380366049215, -99.1354300793847, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50384349892757, -99.13562943574782, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.503879579011574, -99.13576739035108, pToken, 10);  -- edif 10 esia
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50393445079409, -99.13612623184473, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.503989322555285, -99.13642207670122, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.504026905942055, -99.13664057127518, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.504058475980198, -99.13686385040185, pToken, 10);  -- edif 11 esia
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.504125666578396, -99.13723701969339, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50414210050792, -99.13739661111802, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.504204043765746, -99.13769567740117, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50427483603138, -99.13799340257991, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.504321609475607, -99.13821736701617, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.504345628271366, -99.1383984161471, pToken, 10);   -- biblioteca
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.504418241775596, -99.1388202643998, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.504420770067977, -99.13914078835347, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.504506731985604, -99.13947606445565, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.504555360536397, -99.13972119968751, pToken, 10);  -- secretaria
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50458064343792, -99.14003702979235, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.504656492116165, -99.14040851571356, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50472981247472, -99.14087924342525, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.504779114074168, -99.14113539436731, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50484927401819, -99.14151358584456, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50489351901232, -99.14178851226855, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.504940561947436, -99.14214394570263, pToken, 10);  -- central de inteligencia
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.505008193538103, -99.14249129176446, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.505065079901115, -99.14278767585819, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50508973065163, -99.14297677157981, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50511374932957, -99.14317994892345, pToken, 10);   -- Ma. Luisa Stampa
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.505174428075648, -99.14357959806682, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.505207295720417, -99.14385988890977, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.505254613182135, -99.14414997727587, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.505340574659392, -99.14461601109576, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.505430328505106, -99.1448781970296, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.505537866088595, -99.14510822952644, pToken, 10);  -- fte escom
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50574479461253, -99.14540372927168, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.505852060059578, -99.1455971832921, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.505989717279075, -99.1458209830412, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50617028046728, -99.1460523692225, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.506315088423065, -99.14624392663488, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50636872096638, -99.14633306721292, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.506458632131398, -99.14649279487041, pToken, 10);  -- juan de dios
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50661694654815, -99.1469721322666, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.506642229126548, -99.14743078997438, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.506561324861725, -99.14782239246175, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50639951621067, -99.1482649569166, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.506161859450078, -99.14878262334634, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.505979824256674, -99.14927883197755, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.505787675761997, -99.14979649838223, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.505557602934807, -99.15037853771993, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50538820844806, -99.15084524205416, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.505264322815595, -99.15114564944172, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.505150550212402, -99.15142459915873, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.504937600450354, -99.1513530186115, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50467569237493, -99.15124017042825, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.504510323573342, -99.15115861627939, pToken, 10);  -- eje central lazaro cardenas av o de miguel medizabal ote
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.503747711550478, -99.15085611673553, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.503250707914756, -99.15064748985075, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50281806321891, -99.15046541547859, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.502431900033788, -99.15033644613163, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.501999253140742, -99.15016195818326, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50164169284689, -99.1500367820415, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.501319887916654, -99.14988505339802, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.501012384829703, -99.14976367048324, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.500730499576434, -99.14964539048643, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50053455232964, -99.14959711072773, pToken, 10);   -- politecnico oriente
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.4999760152608, -99.14935502268723, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49929566490239, -99.14908436751368, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49873437370312, -99.1488949088922, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.498309151801376, -99.14871447210983, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49783290194481, -99.14850696981011, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.497356650646235, -99.14835359835973, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49674432554039, -99.1480919650253, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49600442961291, -99.14781228801264, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49527303488521, -99.1474965235061, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.494686215816422, -99.14727999936726, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49435453453202, -99.14707249706753, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.493692181068052, -99.1467291042189, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.493637305815664, -99.14662145178283, pToken, 10);  -- Montevideo
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.493686484833287, -99.14635752375631, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49380026549778, -99.14621402558456, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49389824322997, -99.1461241715813, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.4940619607287, -99.1461094194245, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.494210507350264, -99.14617312188344, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.494342618911656, -99.14623347158904, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49452782776085, -99.14630119735894, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.494699072238745, -99.14636458852134, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49487249651522, -99.1464290731948, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.495072738747627, -99.14652580020503, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.495278830327386, -99.14657895767319, pToken, 10);  -- eje central lazado cardenas cda de Otavalo
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.495496760777623, -99.14668270883352, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49584544888325, -99.146786459993, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.496068693926862, -99.14687780612363, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.496282371037047, -99.14697930183428, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49649392172245, -99.14707515887491, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49667676933205, -99.14713492856185, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49686067980011, -99.1472116141976, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.496953166493395, -99.14725785112806, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.497175346938246, -99.14733679222033, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.497365635213736, -99.14741460558533, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.497531472860206, -99.14749354668413, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.497668607708047, -99.14755218864178, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.497804679380195, -99.14760406422235, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49796307516523, -99.14766496163683, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.498114029396245, -99.14773262543842, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49835002797818, -99.14781833291303, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49851799072423, -99.1478781026075, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.498683827187115, -99.14793336137805, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49885391569439, -99.1480089192851, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.499001679934466, -99.148040495722, pToken, 10);    -- eje central lazaro cardenas av Wilfrido Massieu
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49925574907215, -99.14815101325381, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49942158478019, -99.14822431570343, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.499568285458363, -99.14826491398487, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.499719238190384, -99.14833370551212, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49988613646982, -99.14839685839384, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.500177410757566, -99.14849609862789, pToken, 10);  -- eje central politecnico oriente
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.500384704185468, -99.14860436070497, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.500521836615984, -99.14865398082465, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50067491453597, -99.14870247320991, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.500795038080078, -99.14875773197451, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.500934296241976, -99.1488242680549, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.501042726173832, -99.14886373860102, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.501172416786815, -99.14892012510177, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.501302107290215, -99.14897312840658, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.501430734658314, -99.14901823760913, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50155404675, -99.14907124091613, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50172944740448, -99.14913213833347, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50192569823236, -99.149218241452, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.502092857469513, -99.1492713464772, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50227431890888, -99.14935479723573, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50239767681693, -99.14939557431315, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.502521928528072, -99.14944773104139, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.502683723776993, -99.14950368098616, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.502882168555587, -99.14958428683174, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.502967982441888, -99.14961747747688, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50309402150133, -99.14967153080934, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.503228105499254, -99.1497085146726, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50340599009675, -99.14978817221599, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.503554376093636, -99.1498573984116, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.503697395088025, -99.14992286789581, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50391531419942, -99.14999391488585, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50422465252759, -99.15011796517746, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.504407491402635, -99.15020367265633, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.504586078010433, -99.15028148602656, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.504725332903394, -99.15030178516457, pToken, 10);  -- eje central - av miguel o de mendizabal ote
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.5048762808248, -99.15038862036744, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.505028291616235, -99.15045515643398, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.505152663972595, -99.15050364881924, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.505216444631085, -99.15045966735354, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.505249397961435, -99.1503299784162, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.505311052563556, -99.15016307438474, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50536951811087, -99.14998602079203, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.505413101505123, -99.14983264952703, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.505486449144556, -99.1496206362883, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.505511961359872, -99.14942666673603, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.505523654456507, -99.14923382492489, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.505572552854478, -99.14910526369299, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50562906579751, -99.14893021949379, pToken, 10);   -- Neptuno
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50570301778158, -99.1487384415512, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.505747894610746, -99.14863316484319, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.505799092103, -99.14847156176194, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.505872411943045, -99.14829855926843, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.505941939346485, -99.14811818070818, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.506014627053794, -99.14792975552041, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.5061138615232, -99.1476635462789, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50618781328485, -99.14748786159248, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.506252916090137, -99.14731284744991, pToken, 10);  -- av miguel - juan de dios
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.506299688962358, -99.14711034068421, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.506282623186816, -99.14685016640297, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.506248491627773, -99.14666174120467, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.506164426832886, -99.14645051724969, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.506070880994606, -99.14630098409206, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50594446761483, -99.14612664050914, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.5058414406372, -99.14597911901201, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50575421528953, -99.14583293861035, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.505690376418684, -99.14574710792142, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.505593037897288, -99.14560159809308, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.505464447690894, -99.14545058043636, pToken, 10);  -- escom
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.505369637310594, -99.14523533315146, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.505241959243353, -99.14498856991789, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.505183808802823, -99.14476326436663, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.505119337638074, -99.1446003201675, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.505085837905416, -99.14447157414426, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.505052338164994, -99.14428381949847, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.505016310134533, -99.14402364522198, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.504973961387755, -99.14382046790405, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.504920235348536, -99.14363472492279, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.504857028222172, -99.14338863226378, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.504834273648463, -99.14321764142424, pToken, 10);  -- r ma luisa stampa
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50480330214271, -99.14307816654102, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50477169855977, -99.14293668002591, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.504754632622415, -99.14280860455489, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.504738830826977, -99.14267851742723, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.504700274436992, -99.14246125847131, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50466551047327, -99.14228087992835, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50466084678318, -99.14222598533486, pToken, 10);   -- central de inteligencia
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50462165830412, -99.14198860983011, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.504581837743412, -99.14177135089774, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50453885681026, -99.14153397541739, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.504502828665302, -99.14133012750605, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.504485762699588, -99.14110482196537, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.504437725155483, -99.14088286917028, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.504394744183504, -99.14061598936752, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50433596063653, -99.14032622928785, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.504301383987087, -99.14008700165213, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.504277330661377, -99.1399418702198, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.504250270665683, -99.13981747184921, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.504244257332697, -99.13972975504943, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.504221707331972, -99.13961173608249, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.504178110655012, -99.13948574286101, pToken, 10);  -- cancha de entrenamiento
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50416307731035, -99.13915879831391, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.504099937268734, -99.13890840672187, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.504039803872868, -99.13859741079541, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.504008233831076, -99.13835658830878, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50396614043246, -99.13818593926197, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.503933067040137, -99.1379977468552, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.503883456938976, -99.13774097585953, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.503845873515473, -99.13748739449049, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.5038188134476, -99.13730079693464, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.503781230012482, -99.13715088094959, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.503758679947218, -99.13703286198262, pToken, 10);  -- fte esia 11
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.503724103171773, -99.13684147979673, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.503686519714662, -99.13662617492459, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.503654949603927, -99.13643798251782, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50363540619896, -99.13631996355085, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.503611352774225, -99.13614293510042, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.503567755932767, -99.13597707060632, pToken, 10);  -- Manuel de anda y barredo
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50351363569037, -99.1357506017306, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.503388858416756, -99.13565172097451, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.503214470740573, -99.13566129007995, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.503035572832374, -99.13570435105468, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50282059442477, -99.13570594590558, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.5026988233119, -99.13571073045829, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.502598098988788, -99.13572667896734, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50250639469977, -99.13573465322186, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.502369589844104, -99.13575698113453, pToken, 10);  -- fte edif 8 esiqie
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.502232581323483, -99.13579467139496, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50206037031137, -99.13582399237208, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.5019859580824, -99.13584541924743, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.501838196567792, -99.13588150660391, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50167874154452, -99.13590857212125, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.501505466898053, -99.13594578721757, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.501366209233353, -99.13595593678656, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.501251401297512, -99.13598413003383, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.501181240852155, -99.13598864095337, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.501076000127085, -99.1359987905224, pToken, 10);   -- fte edif 6 esiqie
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50087191529802, -99.13605808981953, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.500680151089426, -99.13608236064725, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.500572882208523, -99.13611270637439, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.50044415946287, -99.13613546567092, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.500344041701013, -99.13616012157547, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.500224257868805, -99.13617339783177, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.500109837408964, -99.13619995034438, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49995787261064, -99.13622081303285, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.499888204453434, -99.1362450664133, pToken, 10);   -- fte edif 4 esime
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.4996717184612, -99.13628972225656, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49948529975874, -99.13632161927465, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.499389083570215, -99.13633118838007, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49921670730844, -99.13636204699995, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.499029610367057, -99.13640941165532, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.498793612780176, -99.13644549901178, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.498581002046823, -99.13649286366716, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.498536353757316, -99.13649511912693, pToken, 10);  -- fte edif 2 esime
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.498376895461302, -99.1365176737347, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.498236572047244, -99.13655150563139, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.4980941223964, -99.13658082660852, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49796017708791, -99.13661916942476, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49778583540923, -99.13664172402257, pToken, 10);   -- fte edif 1 esime 
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.497555827462417, -99.13668917993616, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49733471060253, -99.13673880005132, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.497117845696444, -99.1367748874078, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.496900980499746, -99.13681999660338, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.496621285086253, -99.1368679858484, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.496328075967337, -99.13693247052187, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.496059896429998, -99.13701212805968, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.4957988679202, -99.13709557881361, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.495587899364914, -99.13716006348707, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.495484202845105, -99.13725110069404, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.495541414720538, -99.1375280054684, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.495605778056227, -99.1378124966749, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.495677292843645, -99.1381538861227, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.495748807599462, -99.13841182481661, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49581674658822, -99.13866976351049, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49588110981441, -99.13895046150093, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.495938321549538, -99.13929185094874, pToken, 10);  -- cenlex
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.496038442040007, -99.13964462011569, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.496088502260672, -99.1398418673522, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49615644110683, -99.13999738921176, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.496224379924445, -99.14021360252872, pToken, 10);  -- planetario
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.496406741883483, -99.1405322327687, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.496503286361214, -99.14075603251783, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.496621285089077, -99.14096845261868, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.496678496562538, -99.14109742196565, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.496767889449327, -99.14136294709171, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.496846555148842, -99.14152605538344, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.496950250798758, -99.14175364844861, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.497000310737373, -99.14190158387598, pToken, 10);  -- centro de formación
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49720770175075, -99.1423074580352, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.497350729878168, -99.14257298316127, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49747230368707, -99.14284988793563, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.497508060672313, -99.14297506406648, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49763321005842, -99.14324058919256, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.497786964886, -99.14355163291165, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.497947870950696, -99.1438740563226, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.498058717259596, -99.14416613403216, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.498194593271236, -99.14454924887924, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.498312590769114, -99.14483374011728, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.498477071982713, -99.14524720068358, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.498625769252076, -99.14553770455744, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.498693707033013, -99.14579943646741, pToken, 10);  -- esc nacional de ciencias
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.498890368869596, -99.14617117164391, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.498954730873294, -99.14640255782521, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49905127383083, -99.14659980506173, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.499147816730776, -99.14679325908214, pToken, 10);  -- cda Manuel stampa
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49906200082257, -99.14691084878085, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.498901095871982, -99.14697154023823, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49882243117124, -99.14683119124302, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.498758069114924, -99.14657704576521, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.498597163862122, -99.14628496812652, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49853995306701, -99.14611427340263, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.498407653025833, -99.14595875154306, pToken, 10);  -- Salvatierra
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49833256375168, -99.14557563668095, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.498171658075748, -99.14524562688139, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.498082265964428, -99.14498010175532, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.497907057282987, -99.14463112587532, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.497771181028227, -99.14431249568585, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49769808363938, -99.14415723307971, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.497624417311535, -99.14396744582203, pToken, 10);  -- via ceti
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.497522186425268, -99.14374257179338, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.497445513224463, -99.14356873304476, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.497337268643832, -99.1433502384708, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.497220003597548, -99.143085493175, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49710123506885, -99.14283510158295, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.4970155412584, -99.14261660696161, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.496872718151277, -99.14233591318866, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.496805065057416, -99.1421828075018, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.496735908532212, -99.14204565032398, pToken, 10);  -- fte centro de formación
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.496653221339944, -99.14187978580858, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.496567527297376, -99.14167086029988, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.496412676548758, -99.14132796735532, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.496317961940164, -99.1411142573341, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.496224750683943, -99.14090054731284, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49613304278268, -99.14069800124794, pToken, 10);   -- av 45 metros
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49602930754373, -99.14052097271984, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49595413704593, -99.14031523695311, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.495886483568036, -99.1401126908882, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.495817326650304, -99.13995161094682, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.495770720884728, -99.13976660824186, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.495727121930592, -99.13962466651132, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.495691040028625, -99.13951302694801, pToken, 10);  -- fte cenlex
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.495638500358247, -99.13927539779505, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.495544949846025, -99.13884686043694, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.495481165374876, -99.1385310960678, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.495408876277185, -99.13829652825072, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49538336247028, -99.13810706962924, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49529831641824, -99.13780032709921, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.495264297984907, -99.1375477156039, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.495183504177096, -99.13734923514329, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.495136728796243, -99.13703347077417, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49508144878326, -99.1368530339918, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49503042106221, -99.13659591157693, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.494949627137636, -99.13634781100117, pToken, 10);  -- oroya
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49486458084902, -99.13598693731782, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.494796543792873, -99.1356801947878, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.494707245113283, -99.13529676662526, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.494634955669902, -99.13494491489965, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49459243245283, -99.1346742597261, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.494694488155027, -99.1345208884611, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49482205769229, -99.13451186662198, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.494881590108587, -99.13462463961096, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49496238406713, -99.13484116374981, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49496238406713, -99.13497649133657, pToken, 10);   -- el queso
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.495051682605947, -99.13535540857954, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.495098458011377, -99.13556742179881, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49517499955475, -99.13567568386823, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49525579336681, -99.1357794350181, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49531107332025, -99.13591025168532, pToken, 10);
+    SET @test_trash = (SELECT SLEEP(0.5));
+    CALL reportLocation(19.49528981180192, -99.13602753559384, pToken, 10);   -- terminal zacatenco
 
 END$$
 
