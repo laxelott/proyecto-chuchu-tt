@@ -840,14 +840,15 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private fun showDropAndDestination(busStops: List<BusStop>, response: InfoResponse) {
         Log.d("Info", "bus stops on travel: ${busStops.size}")
+        // Prepararse para bajar
         if (response.nextName == busStops.last().name && !alertShown) {
             alertUserForFinalDestination()
             alertShown = true
-        } else if (response.totalDistance < 10f) {
+        } else if (response.totalDistance < 10f && alertShown) { // Bajaaan
             arrivalAlert()
             showNotification(this)
             endTravel() // Stop API call here
-            alertShown = true
+            alertShown = false
         }
     }
 
@@ -1193,7 +1194,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         vibrator.vibrate(VibrationEffect.createOneShot(1000, VibrationEffect.DEFAULT_AMPLITUDE))
         val builder = AlertDialog.Builder(this)
         builder.setTitle("¡Llegaste a tu destino!")
-            .setMessage("Haz llegado a tu destino, gracias por viajar con Nintrip :)")
+            .setMessage("Has llegado a tu destino, gracias por viajar con Nintrip :)")
             .setPositiveButton("OK") { dialog, _ ->
                 dialog.dismiss()
                 alertShown = false

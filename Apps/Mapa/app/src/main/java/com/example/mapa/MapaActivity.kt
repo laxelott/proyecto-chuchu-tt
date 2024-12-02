@@ -79,16 +79,16 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var background: LinearLayout
     private val polylines: MutableList<Polyline> = mutableListOf()
     private var isLocationUpdatesActive = false
-    private var speed = 0
+    private var speed:Float = 0.0F
     private val locationCallback = object : LocationCallback() {
         override fun onLocationResult(locationResult: LocationResult) {
             locationResult.locations.forEach { location ->
                 currentLocation = LatLng(location.latitude, location.longitude)
                 speed = if (location.hasSpeed()) {
                     val speedInMetersPerSecond = location.speed
-                    speedInMetersPerSecond.toInt()
+                    speedInMetersPerSecond
                 } else {
-                    0
+                    0.0F
                 }
             }
         }
