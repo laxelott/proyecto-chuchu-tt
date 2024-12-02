@@ -71,7 +71,8 @@ aside.sidebar ul li.active {
 main.content {
   margin-left: 240px; /* Espacio para el sidebar */
   padding: 2rem;
-  flex: 1; /* Esto permite que el contenido se expanda y empuje el footer hacia abajo */
+  flex: 1; /* Esto permite que el contenido se expanda y empuje el footer hacia abao */
+  padding-bottom: 100px;
 }
 
 /* Estilos para tablas y formularios */
@@ -123,7 +124,7 @@ footer {
   flex-direction: row;
   height: 80px;
   color: white;
-  position: absolute;
+  position: fixed;
   bottom: 0;
   left: 0;
   padding: 1rem 0;
