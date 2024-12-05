@@ -35,7 +35,7 @@ interface ApiService {
 
     data class BodyDriver(
         val token: String,
-        val speed: Int
+        val speed: Float
     )
     @POST("location/reportLocation/{latitude}/{longitude}")
     suspend fun postLatitudeLongitude(
