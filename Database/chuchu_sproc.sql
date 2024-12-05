@@ -775,6 +775,7 @@ sp: BEGIN
     DECLARE vCurrStop int;
     DECLARE vTotalDistance float;
     DECLARE vDistanceToNext float;
+    DECLARE vTimePadding float;
     DECLARE vIdVehicle int;
     DECLARE vIdNextStop int;
 
@@ -813,25 +814,17 @@ sp: BEGIN
 
     -- mientras no haya vehiculos que acaben de haber pasado por la estación
     WHILE (SELECT COUNT(*) FROM Last_Location WHERE idLastStop = vCurrStop AND idVehicle = vIdVehicle) = 0 DO
-        -- le sumas a la distancia total la distancia entre la estación pasada
         SET vTotalDistance = vTotalDistance + (SELECT distanceTo FROM Stop WHERE idStop = vCurrStop);
+        SET vTimePadding = vTimePadding + 5;
 
-        insert into testValues values(vCurrStop);
-
-        -- te pasas a la estación anterior
         SET vCurrStop = (SELECT idStop FROM Stop WHERE idNext = vCurrStop);
     END WHILE;
     
-    insert into testValues values(vCurrStop);
     
     SET vDistanceToNext = (SELECT GREATEST(distanceToStop, 0) FROM VehicleData WHERE idVehicle = vIdVehicle);
     SET vTotalDistance = vTotalDistance + vDistanceToNext;
     SET vIdNextStop = (SELECT idNext FROM Stop WHERE idStop = vCurrStop);
     SET vAvgSpeed = (SELECT avgSpeed FROM VehicleData WHERE idVehicle = vIdVehicle);
-
-    IF vIdNextStop IS NULL THEN
-        SET vIdNextStop = (SELECT idStop FROM Stop WHERE idRoute = pIdRoute AND idNext IS NULL);
-    END IF;
 
     SELECT
         0 AS error,
@@ -887,10 +880,6 @@ sp: BEGIN
     SET vTotalDistance = vTotalDistance + vDistanceToNext;
     SET vIdNextStop = (SELECT idNext FROM Stop WHERE idStop = vCurrStop);
     SET vAvgSpeed = (SELECT avgSpeed FROM VehicleData WHERE idVehicle = vIdVehicle);
-
-    IF vIdNextStop IS NULL THEN
-        SET vIdNextStop = (SELECT idStop FROM Stop WHERE idRoute = vIdRoute AND idNext IS NULL);
-    END IF;
 
     SELECT
         0 AS error,
