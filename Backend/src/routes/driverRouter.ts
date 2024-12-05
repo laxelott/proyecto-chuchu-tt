@@ -43,6 +43,8 @@ router.post('/startTrip/:routeId', function(req, res, next) {
     let token = req.body.token;
     let routeId = req.params.routeId;
 
+    console.log("----- Start Trip, " + token + ", " + routeId)
+    
     DriverDAO.startTrip(token, routeId)
         .then((result) => {res.send(result)})
         .catch((err) => {res.send("ERROR: " + err)});

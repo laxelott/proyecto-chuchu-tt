@@ -241,7 +241,8 @@ BEGIN
         INNER JOIN Route r ON vr.idRoute = r.idRoute
         INNER JOIN Transport t ON r.idTransport = t.idTransport
     WHERE d.token = pToken
-        AND v.driverToken IS NULL;
+        AND v.driverToken IS NULL
+        AND v.disabled = 0;
 
 END$$
 
@@ -255,14 +256,14 @@ CREATE PROCEDURE useVehicle(
 )
 sp: BEGIN
 
+    IF (SELECT disabled FROM Vehicle WHERE identifier = pVehicleIdentifier) THEN
+        SELECT 2 as error, 'vehicle-disabled' as message;
+        LEAVE sp;
+    END IF;
     IF (SELECT COUNT(*) FROM Vehicle WHERE identifier = pVehicleIdentifier AND driverToken = pToken) > 0 THEN
         SELECT 2 as error, 'vehicle-in-use' as message;
         LEAVE sp;
     END IF;
-
-    UPDATE Vehicle
-        SET driverToken = NULL
-        WHERE driverToken = pToken;
 
     UPDATE Vehicle
         SET driverToken = pToken
@@ -309,7 +310,7 @@ sp: BEGIN
     DECLARE vIdVehicle INT;
     DECLARE vIdStop INT;
 
-    IF (SELECT COUNT(*) FROM Vehicle WHERE driverToken = pToken) = 0 THEN
+    IF (SELECT COUNT(*) FROM Vehicle WHERE driverToken = pToken AND disabled = 0) = 0 THEN
         SELECT 2 as error, 'invalid-token' as message;
         LEAVE sp;
     END IF;
@@ -366,11 +367,11 @@ sp: BEGIN
 
     INSERT INTO CancelReason(time, reason, idDriver)
         VALUES(NOW(), pReason, (SELECT idDriver FROM Driver WHERE token = pToken));
-
-    UPDATE Vehicle
-        SET driverToken = NULL
-        WHERE driverToken = pToken;
     
+    UPDATE Vehicle
+        SET disabled = 1
+        WHERE driverToken = pToken;
+
     SELECT 0 as error;
 
 END$$
@@ -721,6 +722,7 @@ sp: BEGIN
         SELECT COUNT(*) FROM Last_Location ll
             INNER JOIN Vehicle v ON ll.idVehicle = v.idVehicle
             WHERE v.driverToken IS NOT NULL
+            AND v.disabled = 0
     ) = 0 THEN
         SELECT 3 AS error, 'no-vehicles' AS message;
         LEAVE sp;
@@ -731,11 +733,20 @@ sp: BEGIN
     SET vDistanceToNext = 0;
     SET vTimePadding = 0;
 
-    WHILE (SELECT COUNT(*) FROM Last_Location WHERE idLastStop = vCurrStop) = 0 DO
+    infWhile: WHILE 1=1 DO
         SET vTotalDistance = vTotalDistance + (SELECT distanceTo FROM Stop WHERE idStop = vCurrStop);
         SET vTimePadding = vTimePadding + 5;
 
         SET vCurrStop = (SELECT idStop FROM Stop WHERE idNext = vCurrStop);
+
+        IF (SELECT COUNT(*) FROM Last_Location WHERE idLastStop = vCurrStop) = 1
+            AND
+            (SELECT v.disabled FROM Vehicle v
+                INNER JOIN Last_Location ll ON v.idVehicle = ll.idVehicle
+            ) = 0
+        THEN
+            LEAVE infWhile;
+        END IF;
     END WHILE;
     
     SET vIdVehicle = (SELECT idVehicle FROM Last_Location WHERE idLastStop = vCurrStop LIMIT 1);
@@ -796,6 +807,7 @@ sp: BEGIN
         SELECT COUNT(*) FROM Last_Location ll
             INNER JOIN Vehicle v ON ll.idVehicle = v.idVehicle
             WHERE v.driverToken IS NOT NULL
+            AND v.disabled = 0
     ) = 0 THEN
         SELECT 3 AS error, 'no-vehicles' AS message;
         LEAVE sp;
@@ -883,14 +895,14 @@ sp: BEGIN
 
     SELECT
         0 AS error,
-        identifier as identifier,
+        v.identifier as identifier,
         (SELECT name FROM Stop WHERE idStop = vIdNextStop) as nextName,
         vDistanceToNext as nextDistance,
         (vDistanceToNext/vAvgSpeed) as nextTime,
         vTotalDistance as totalDistance,
-        (vTotalDistance / vAvgSpeed) AS totalTime
+        (vTotalDistance / vAvgSpeed) AS totalTime,
+        vIdVehicle
     FROM Vehicle v
-        INNER JOIN VehicleData vd on vd.idVehicle = v.idVehicle
         WHERE v.idVehicle = vIdVehicle;
 
 END$$

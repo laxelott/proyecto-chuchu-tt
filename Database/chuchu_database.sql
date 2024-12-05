@@ -157,6 +157,7 @@ CREATE TABLE `Vehicle`(
     `idVehicle` int NOT NULL AUTO_INCREMENT,
     `identifier` varchar(255) NOT NULL UNIQUE,
     `driverToken` varchar(40),
+    `disabled` int NOT NULL DEFAULT 0,
     CONSTRAINT `PK_Vehicle` PRIMARY KEY (`idVehicle` ASC)
 );
 
