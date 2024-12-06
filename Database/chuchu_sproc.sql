@@ -306,6 +306,44 @@ END$$
 
 
 -- -----------------------------------------------------------------------------
+  -- endTrip
+-- -----------------------------------------------------------------------------
+DROP PROCEDURE IF EXISTS endTrip$$
+CREATE PROCEDURE endTrip(
+    `pToken` varchar(40)
+)
+sp: BEGIN
+
+    DECLARE vIdVehicle INT;
+
+
+    SET vIdVehicle = (SELECT v.idVehicle FROM Vehicle v
+        WHERE driverToken = pToken);
+
+    IF vIdVehicle IS NULL THEN
+        SELECT 2 as error, 'invalid-token' as message;
+        LEAVE sp;
+    END IF;
+    IF (SELECT disabled FROM Vehicle WHERE idVehicle = vIdVehicle) = 1 THEN
+        SELECT 1 as error, 'disabled-vehicle' as message;
+        LEAVE sp;
+    END IF;
+
+
+    UPDATE Vehicle
+        SET driverToken = NULL
+        WHERE driverToken = pToken;
+    DELETE FROM Last_Location
+        WHERE idVehicle = vIdVehicle;
+    DELETE FROM VehicleData
+        WHERE idVehicle = vIdVehicle;
+    
+    SELECT 0 as error;
+
+END$$
+
+
+-- -----------------------------------------------------------------------------
   -- startTrip
 -- -----------------------------------------------------------------------------
 DROP PROCEDURE IF EXISTS startTrip$$
