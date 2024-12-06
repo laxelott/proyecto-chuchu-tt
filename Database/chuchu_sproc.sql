@@ -226,23 +226,31 @@ CREATE PROCEDURE getDriverInfo(
 )
 BEGIN
 
-    SELECT DISTINCT
-        d.name,
-        t.name as 'transportName',
-        v.identifier AS 'vehicleIdentifier',
-        CONCAT(r.name, ' - ', r.description) AS 'routeName',
-        r.color AS 'routeColor',
-        r.iconB64 AS 'routeIcon',
-        r.idRoute AS 'idRoute'
-    FROM Driver d
-        INNER JOIN Driver_Vehicle dv ON d.idDriver = d.idDriver
-        INNER JOIN Vehicle v ON dv.idVehicle = v.idVehicle
-        INNER JOIN Vehicle_Route vr ON v.idVehicle = vr.idVehicle
-        INNER JOIN Route r ON vr.idRoute = r.idRoute
-        INNER JOIN Transport t ON r.idTransport = t.idTransport
-    WHERE d.token = pToken
-        AND v.driverToken IS NULL
-        AND v.disabled = 0;
+    IF (SELECT COUNT(*) FROM Vehicle v
+        WHERE v.driverToken = pToken
+        AND v.disabled = 1) = 0
+    THEN 
+        SELECT DISTINCT
+            0 as error,
+            d.name,
+            t.name as 'transportName',
+            v.identifier AS 'vehicleIdentifier',
+            CONCAT(r.name, ' - ', r.description) AS 'routeName',
+            r.color AS 'routeColor',
+            r.iconB64 AS 'routeIcon',
+            r.idRoute AS 'idRoute'
+        FROM Driver d
+            INNER JOIN Driver_Vehicle dv ON d.idDriver = d.idDriver
+            INNER JOIN Vehicle v ON dv.idVehicle = v.idVehicle
+            INNER JOIN Vehicle_Route vr ON v.idVehicle = vr.idVehicle
+            INNER JOIN Route r ON vr.idRoute = r.idRoute
+            INNER JOIN Transport t ON r.idTransport = t.idTransport
+        WHERE d.token = pToken
+            AND v.driverToken IS NULL
+            AND v.disabled = 0;
+    ELSE
+        SELECT 1 AS error, 'disabled-vehicle' as message;
+    END IF;
 
 END$$
 
