@@ -10,6 +10,14 @@ export class DriverDAO {
 
         return results[0];
     }
+    static async endTrip(token: any) {
+        const results: any = (await SQLPool.query(
+            "CALL endTrip(?)",
+            [token]
+        ));
+
+        return results[0];
+    }
     static async cancelTrip(token: any, reason: any) {
         const results: any = (await SQLPool.query(
             "CALL cancelTrip(?, ?)",
