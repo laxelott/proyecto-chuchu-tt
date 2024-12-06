@@ -4,15 +4,19 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.location.Location
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.Looper
 import android.os.VibrationEffect
 import android.os.Vibrator
+import android.provider.Settings
 import android.text.Html
 import android.util.Log
 import android.view.View
@@ -94,9 +98,7 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
         }
     }
 
-    companion object {
-        const val REQUEST_CODE_LOCATION = 0
-    }
+    private val REQUEST_CODE_LOCATION = 1002
 
     private lateinit var fusedLocationProviderClient: FusedLocationProviderClient
     private lateinit var lastLocation: Location
@@ -112,6 +114,10 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
     private var busStopCounter: Int = 0
     private var checkRange = false
     private var isLocationPermissionRequested = false  // Control para manejar permisos de ubicación
+    private var hasFetchedData = false
+    private var isFetchingData = false
+    private var hasFetchedBusStops = false
+
 
 
 
@@ -130,6 +136,7 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
 
         // Construct a FusedLocationProviderClient
         fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this)
+        requestPermissionsFlow{}
         btnLocation = findViewById(R.id.location_button)
         btnReportIncident = findViewById(R.id.btn_report_incident)
         btnEndTravel = findViewById(R.id.traveling_container_button)
@@ -174,6 +181,9 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
 
 
     private fun fetchBusStops(service: ApiService) {
+        if (hasFetchedBusStops) return // Evitar múltiples ejecuciones
+        hasFetchedBusStops = true
+
         ApiHelper().getDataFromDB(
             serviceCall = { service.getBusStopsInfo(routeID) }, // Pasamos la función que hace la solicitud
             processResponse = { response ->
@@ -190,20 +200,23 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
 
                         if (checkRange && distance >= 10f) {
                             showAlertDialog(this@MapaActivity)
-                        }
-                        setupMapMarkersAndRoutes()
-                        CoroutineScope(Dispatchers.IO).launch {
-                            val tokenRequest = TokenRequest(token)
-                            val response = ApiHelper().prepareApi().startTrip(tokenRequest, routeID)
-                            if (response.isSuccessful) {
-                                Log.d("API Response", "Ubicacion enviada")
+                        } else {
+                            setupMapMarkersAndRoutes()
+                            CoroutineScope(Dispatchers.IO).launch {
+                                val tokenRequest = TokenRequest(token)
                                 useVehicle(token, vehicleIdentifier)
-                                startTravel()
-                            } else {
-                                Log.e(
-                                    "API Error",
-                                    "Error al enviar ubicacion: ${response.code()} ${response.message()}"
-                                )
+                                val response = ApiHelper().prepareApi().startTrip(tokenRequest, routeID)
+                                if (response.isSuccessful) {
+                                    Log.d("API Respose", "$response")
+                                    Log.d("API Response", "$tokenRequest, $routeID")
+                                    Log.d("API Response", "Listo para iniciar viaje")
+                                    startTravel()
+                                } else {
+                                    Log.e(
+                                        "API Error",
+                                        "Error al enviar ubicacion: ${response.code()} ${response.message()}"
+                                    )
+                                }
                             }
                         }
                     }
@@ -211,6 +224,7 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
             }
         )
     }
+
 
     private fun useVehicle(token: String, vehicleIdentifier: String) {
         val service = ApiHelper().prepareApi()
@@ -871,8 +885,25 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
      */
     @SuppressLint("PotentialBehaviorOverride")
     override fun onMapReady(googleMap: GoogleMap) {
-        mMap = googleMap
-        setupMap()
+        if (!::mMap.isInitialized) {
+            mMap = googleMap
+            setupMap()
+
+            // Establecer lógica inicial
+            requestPermissionsFlow { granted ->
+                if (granted) {
+                    initializeMapLogic()
+                } else {
+                    Toast.makeText(this, "Permisos de ubicación son requeridos", Toast.LENGTH_LONG).show()
+                }
+            }
+
+            // Callback de permisos
+            onPermissionGranted = { initializeMapLogic() }
+        }
+    }
+
+    private fun initializeMapLogic() {
         enableLocation()
         setupLocationButton()
         setUpIncidentButton()
@@ -881,21 +912,29 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
         setupMarkerClickListeners()
 
         mMap.setOnMapLoadedCallback {
-            // Ejecuta las llamadas a la API después de que el mapa esté completamente cargado
-            lifecycleScope.launch {
-                fetchDataInBackground()  // Llama a la función que ejecuta las llamadas a la API
+            if (!hasFetchedData) {
+                hasFetchedData = true
+                lifecycleScope.launch {
+                    fetchDataInBackground()
+                }
             }
         }
-
-
     }
+
 
     private suspend fun fetchDataInBackground() = withContext(Dispatchers.IO) {
-        // Inicializa tu servicio y realiza las llamadas a la API en segundo plano
-        updateCurrentLocation()
-        val service = ApiHelper().prepareApi()
-        fetchBusStops(service)
+        if (isFetchingData) return@withContext
+        isFetchingData = true
+
+        try {
+            updateCurrentLocation()
+            val service = ApiHelper().prepareApi()
+            fetchBusStops(service)
+        } finally {
+            isFetchingData = false // Restablece si es necesario permitir nuevas ejecuciones
+        }
     }
+
 
     private fun setupMap() {
         mMap.setMapStyle(MapStyleOptions.loadRawResourceStyle(this, R.raw.custom_map_style))
@@ -1010,64 +1049,91 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
     * PERMISOS
     *
     * */
-    private fun isLocationPermissionGranted(): Boolean {
-        return ContextCompat.checkSelfPermission(
-            this,
-            Manifest.permission.ACCESS_FINE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
-    }
-
-    private fun requestLocationPermission() {
-        if (ActivityCompat.shouldShowRequestPermissionRationale(
-                this,
-                Manifest.permission.ACCESS_FINE_LOCATION
-            )
-        ) {
-            // Mostrar explicación si es necesario
-            Toast.makeText(this, "Necesitamos el permiso de ubicación", Toast.LENGTH_SHORT).show()
+    private fun requestPermissionsFlow(onPermissionResult: (Boolean) -> Unit) {
+        if (isLocationPermissionGranted()) {
+            enableLocation()
+            onPermissionResult(true)
         } else {
-            // Solicitar el permiso
-            ActivityCompat.requestPermissions(
-                this,
-                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
-                REQUEST_CODE_LOCATION
-            )
+            if (isLocationPermissionRequested) {
+                Toast.makeText(this, "Permiso de localización denegado", Toast.LENGTH_SHORT).show()
+                showLocationPermissionDeniedDialog()
+                onPermissionResult(false)
+            } else {
+                requestLocationPermission()
+            }
         }
     }
 
-    // Habilitar la ubicación en el mapa
-    private fun enableLocation() {
-        if (isLocationPermissionGranted()) {
-            // Habilitar la ubicación en el mapa
-            mMap.isMyLocationEnabled = true
-            // Obtener la última ubicación conocida
-            fusedLocationProviderClient.lastLocation.addOnSuccessListener { location ->
-                if (location != null) {
-                    // Crear un objeto LatLng con la ubicación
-                    val currentLocation = LatLng(location.latitude, location.longitude)
+    // Verifica si el permiso de ubicación está concedido
+    private fun isLocationPermissionGranted(): Boolean {
+        return ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+    }
 
-                    // Mover la cámara para centrarla en la ubicación
-                    mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLocation, 16f))
+    // Activa la ubicación en el mapa si el permiso está concedido
+    private fun enableLocation() {
+        if (!::mMap.isInitialized) return
+        if (isLocationPermissionGranted()) {
+            mMap.isMyLocationEnabled = true
+            getLastLocation()
+        }
+    }
+
+    // Obtiene la última ubicación del usuario si el permiso está concedido
+    private fun getLastLocation() {
+        fusedLocationProviderClient.lastLocation.addOnSuccessListener(this) { location ->
+            if (location != null) {
+                lastLocation = location
+                currentLocation = LatLng(location.latitude, location.longitude)
+                mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLocation, 16f))
+            }
+        }
+    }
+
+    // Muestra un diálogo si el permiso de ubicación ha sido denegado
+    private fun showLocationPermissionDeniedDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("Permiso de Ubicación Requerido")
+            .setMessage("Para usar la ubicación, habilita el permiso en los ajustes de la aplicación.")
+            .setPositiveButton("Ir a ajustes") { _, _ ->
+                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                    data = Uri.fromParts("package", packageName, null)
+                }
+                startActivity(intent)
+            }
+            .setNegativeButton("Cancelar", null)
+            .show()
+    }
+
+    // Solicita el permiso de ubicación
+    private fun requestLocationPermission() {
+        isLocationPermissionRequested = true
+        ActivityCompat.requestPermissions(
+            this,
+            arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
+            REQUEST_CODE_LOCATION
+        )
+    }
+
+    // Manejador del resultado de la solicitud de permisos
+    private var onPermissionGranted: (() -> Unit)? = null
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+
+        when (requestCode) {
+            REQUEST_CODE_LOCATION -> {
+                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    enableLocation()
+                    onPermissionGranted?.invoke()
+                    onPermissionGranted = null
                 } else {
-                    Toast.makeText(this, "No se pudo obtener la ubicación", Toast.LENGTH_SHORT).show()
+                    showLocationPermissionDeniedDialog()
+                    onPermissionGranted = null
                 }
             }
         }
     }
 
-    // Manejar la respuesta de los permisos
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == REQUEST_CODE_LOCATION) {
-            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                // Si se concede el permiso, habilitar la ubicación
-                enableLocation()
-            } else {
-                // Si el permiso es denegado
-                Toast.makeText(this, "Permiso de ubicación denegado", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
 
 
 }

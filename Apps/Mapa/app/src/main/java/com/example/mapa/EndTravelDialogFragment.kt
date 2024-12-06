@@ -65,9 +65,8 @@ class EndTravelDialogFragment(private val sendingDataJob: Job?, private val gett
             .setMessage("¿Quieres finalizar tu viaje?")
             .setPositiveButton("Si") { dialog, _ ->
                 stopSendingDataPeriodically()
-                (activity as? MapaActivity)?.leaveVehicle()
                 callApi(reason)
-                val sharedPreferences = requireContext().getSharedPreferences("vehicleIsSelected", Context.MODE_PRIVATE)
+                val sharedPreferences = requireContext().getSharedPreferences("SelectedVehicle", Context.MODE_PRIVATE)
                 val editor = sharedPreferences.edit()
                 editor.clear()
                 editor.apply()

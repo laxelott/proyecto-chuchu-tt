@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.graphics.Color
-import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.util.Log
 import android.view.View
@@ -13,7 +12,6 @@ import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.Spinner
 import android.widget.TextView
-import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
@@ -29,7 +27,6 @@ import okhttp3.FormBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.IOException
-import kotlin.math.log
 
 
 class TransportInformationActivity : AppCompatActivity() {
@@ -232,6 +229,9 @@ class TransportInformationActivity : AppCompatActivity() {
             processResponse = { response ->
                 val infoVehicles = response.body()
                 if (infoVehicles != null) {
+                    if (infoVehicles[0].error == 1) {
+                        showErrorDialog("Usuario deshabilitado, contacte a un administrador")
+                    }
                     allDriverInfo = infoVehicles
                     Log.e("driver info", "$infoVehicles")
                     updateUIWithDriverInfo(allDriverInfo)
