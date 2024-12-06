@@ -511,7 +511,7 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
 
-    fun leaveVehicle() {
+    private fun leaveVehicle() {
         val service = ApiHelper().prepareApi()
         val tokenRequest = TokenRequest(token)
         ApiHelper().getDataFromDB(
@@ -547,7 +547,7 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
         sendingDataJob?.cancel()
         gettingIncidentsJob?.cancel()
         gettingInfoJob?.cancel()
-        leaveVehicle()
+        endTrip()
         val sharedPreferences = getSharedPreferences("vehicleIsSelected", Context.MODE_PRIVATE)
         val editor = sharedPreferences.edit()
         editor.clear()
@@ -574,6 +574,48 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
             }
             .setCancelable(false)
         builder.create().show()
+    }
+
+    private fun endTrip() {
+        val service = ApiHelper().prepareApi()
+        val tokenRequest = TokenRequest(token)
+        ApiHelper().getDataFromDB(
+            serviceCall = { service.endTrip(tokenRequest) },
+            processResponse = { response ->
+                val responseBody = response.body()
+                Log.d("Response", "$responseBody")
+                if (responseBody != null) {
+                    when (responseBody.error) {
+                        0 -> {
+                        }
+
+                        1 -> {
+                            val builder = AlertDialog.Builder(this)
+                            builder.setTitle("¡Error!")
+                                .setMessage("Consulta al administrador")
+                                .setPositiveButton("OK") { dialog, _ ->
+                                    dialog.dismiss()
+                                    finish()
+                                }
+                                .setCancelable(false)
+                            builder.create().show()
+                        }
+                        2 -> {
+                            val builder = AlertDialog.Builder(this)
+                            builder.setTitle("¡Error!")
+                                .setMessage("Token inválida, consulta al administrador")
+                                .setPositiveButton("OK") { dialog, _ ->
+                                    dialog.dismiss()
+                                    finish()
+                                }
+                                .setCancelable(false)
+                            builder.create().show()
+                        }
+                    }
+                }
+            }
+        )
+
     }
 
     private fun alertUserForFinalDestination() {

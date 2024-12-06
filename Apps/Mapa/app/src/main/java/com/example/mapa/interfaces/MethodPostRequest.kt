@@ -30,6 +30,9 @@ interface ApiService {
     @POST("driver/leaveVehicle/")
     suspend fun leaveVehicle(@Body token: TokenRequest): Response<GenericResponse>
 
+    @POST("driver/endTrip/")
+    suspend fun endTrip(@Body token: TokenRequest): Response<GenericResponse>
+
     @POST("data/stop/list/{idRoute}")
     suspend fun getBusStopsInfo(@Path("idRoute") idRoute: Int): Response<List<BusStop>>
 
