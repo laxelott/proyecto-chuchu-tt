@@ -147,6 +147,7 @@ CREATE TABLE `VehicleData`(
     `direction` float NOT NULL,
     `distanceToStop` float NOT NULL,
     `avgSpeed` float NOT NULL,
+    `inStop` int NOT NULL default 0,
     CONSTRAINT `PK_VehicleData` PRIMARY KEY (`idVehicleSpeed` ASC),
     CONSTRAINT `FK_VehicleData_Vehicle` FOREIGN KEY (`idVehicle`)
         REFERENCES `Vehicle` (`idVehicle`)
