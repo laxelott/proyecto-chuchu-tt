@@ -1163,11 +1163,17 @@ DROP PROCEDURE IF EXISTS forgotPassword$$
 CREATE PROCEDURE forgotPassword(
     `pUsername` varchar(255)
 )
-BEGIN
+sp: BEGIN
+
+    IF (COUNT(*) FROM Driver WHERE username = pUsername) = 0 THEN
+        SELECT 1 AS error, 'username-not-found' AS message;
+    END IF;
 
     UPDATE Driver d SET
         d.requiresReset = 1
     WHERE d.username = pUsername;
+
+    SELECT 0 AS error;
 
 END$$
 
