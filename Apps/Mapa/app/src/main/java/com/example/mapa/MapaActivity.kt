@@ -9,6 +9,10 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import android.location.Location
 import android.net.Uri
 import android.os.Build
@@ -68,7 +72,7 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
 
-class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
+class MapaActivity : AppCompatActivity(), OnMapReadyCallback, SensorEventListener {
 
     private lateinit var mMap: GoogleMap
     private lateinit var binding: ActivityMapaTransporteBinding
@@ -100,15 +104,7 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
 
                 // Actualizar la posición de la cámara
                 currentLocation.let { currentLatLng ->
-                    val cameraPosition = CameraPosition.Builder()
-                        .target(currentLatLng) // Centrar la cámara en la ubicación actual
-                        .zoom(18.5f) // Nivel de zoom
-                        .bearing(0f) // Orientación de la cámara
-                        .tilt(0f) // Inclinación de la cámara
-                        .build()
-
-                    // Mover la cámara en el mapa
-                    mMap.animateCamera(CameraUpdateFactory.newCameraPosition(cameraPosition))
+                    updateCameraPosition()
                 }
             }
         }
@@ -136,6 +132,11 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
     private var hasFetchedBusStops = false
 
 
+    private lateinit var sensorManager: SensorManager
+    private var rotationVectorSensor: Sensor? = null
+    private var azimuth: Float = 0.0f
+    private var lastAzimuth: Float = 0.0f
+
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -161,6 +162,10 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
         progressBar = findViewById(R.id.progress_bar)
         background = findViewById(R.id.ownBackground)
 
+        sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
+        rotationVectorSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
+
+
 
         // Initialize directions API
         val retrofit = Retrofit.Builder()
@@ -177,6 +182,44 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
 
     override fun onBackPressed() {
         // No hacer nada aquí bloquea el botón "Atrás"
+    }
+
+
+    override fun onResume() {
+        super.onResume()
+        // Registra el listener del sensor
+        rotationVectorSensor?.let {
+            sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_UI)
+        }
+    }
+
+    override fun onSensorChanged(event: SensorEvent?) {
+        if (event?.sensor?.type == Sensor.TYPE_ROTATION_VECTOR) {
+            val rotationMatrix = FloatArray(9)
+            val orientationAngles = FloatArray(3)
+
+            SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
+            SensorManager.getOrientation(rotationMatrix, orientationAngles)
+
+            val newAzimuth = Math.toDegrees(orientationAngles[0].toDouble()).toFloat()
+            val normalizedAzimuth = (newAzimuth + 360) % 360
+
+            if (Math.abs(normalizedAzimuth - lastAzimuth) > 2) { // Cambia solo si supera los 2 grados
+                lastAzimuth = normalizedAzimuth
+                azimuth = lastAzimuth
+                updateCameraPosition()
+            }
+        }
+    }
+
+    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
+        // No es necesario manejar este evento en este caso
+    }
+
+    override fun onPause() {
+        super.onPause()
+        // Detén las actualizaciones del sensor
+        sensorManager.unregisterListener(this)
     }
 
     private fun updateCurrentLocation() {
@@ -746,15 +789,15 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
         textViewInst.text = instructions
     }
 
-    private fun updateCameraPosition(location: Location) {
+    private fun updateCameraPosition() {
         val cameraPosition = CameraPosition.Builder()
-            .target(LatLng(location.latitude, location.longitude))
+            .target(currentLocation)
             .zoom(19.4f)
-            .bearing(location.bearing)
-            .tilt(45f)
+            .bearing(azimuth)
+            .tilt(90f)
             .build()
 
-        mMap.animateCamera(CameraUpdateFactory.newCameraPosition(cameraPosition))
+        mMap.moveCamera(CameraUpdateFactory.newCameraPosition(cameraPosition))
     }
 
     private fun showAlertDialog(context: Context) {
@@ -1143,7 +1186,7 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
             if (location != null) {
                 lastLocation = location
                 currentLocation = LatLng(location.latitude, location.longitude)
-                mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLocation, 16f))
+                updateCameraPosition()
             }
         }
     }

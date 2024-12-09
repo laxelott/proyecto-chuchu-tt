@@ -20,7 +20,7 @@ class TravelFragment : Fragment(), InfoFragmentInterface {
         val nextStopTime: TextView = requireView().findViewById(R.id.traveling_nextStop_time)
 
         nextStop.text = newData.nextName
-        nextStopTime.text = formatSecondsToTime(newData.nextTime)
+        nextStopTime.text = formatSecondsToTime(newData.totalTime)
     }
 
     private fun formatSecondsToTime(seconds: Float): String {

@@ -367,6 +367,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
                                 .icon(markerIcon)
                                 .anchor(0.0f, 0.8f)
                                 .rotation(driver.direction)
+                                .flat(true)
                         )
 
                         marker?.tag = MarkerTag(type = "driverLocation", mode = infoWindowMode)
@@ -869,8 +870,11 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
                             if (infoFragment is StartTravelFragment) {
                                 val startTravelFragment = infoFragment
+                                val distanceCheck = calculateDistance(
+                                    LatLng(currentLocation.latitude, currentLocation.longitude), LatLng(
+                                        busStops[0].latitude, busStops[0].longitude))
                                 startTravelFragment.setBusStop(busStops[0])
-                                if (info.totalDistance <= 40f) {
+                                if (info.arrived == 1 && distanceCheck < 20f) {
                                     startTravelFragment.enableStartButton()
                                 } else {
                                     startTravelFragment.disableStartButton()
@@ -900,7 +904,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         if (response.nextName == busStops.last().name && !alertShown) {
             alertUserForFinalDestination()
             alertShown = true
-        } else if (response.nextDistance < 40f && alertShown) { // Bajaaan
+        } else if (response.arrived == 1 && alertShown) { // Bajaaan
             arrivalAlert()
             showNotification(this)
             endTravel() // Stop API call here
