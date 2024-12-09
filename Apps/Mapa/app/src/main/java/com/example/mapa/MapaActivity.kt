@@ -87,16 +87,33 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
     private val locationCallback = object : LocationCallback() {
         override fun onLocationResult(locationResult: LocationResult) {
             locationResult.locations.forEach { location ->
+                // Actualizar la ubicación actual
                 currentLocation = LatLng(location.latitude, location.longitude)
+
+                // Actualizar la velocidad
                 speed = if (location.hasSpeed()) {
                     val speedInMetersPerSecond = location.speed
                     speedInMetersPerSecond
                 } else {
                     0.0F
                 }
+
+                // Actualizar la posición de la cámara
+                currentLocation.let { currentLatLng ->
+                    val cameraPosition = CameraPosition.Builder()
+                        .target(currentLatLng) // Centrar la cámara en la ubicación actual
+                        .zoom(18.5f) // Nivel de zoom
+                        .bearing(0f) // Orientación de la cámara
+                        .tilt(0f) // Inclinación de la cámara
+                        .build()
+
+                    // Mover la cámara en el mapa
+                    mMap.animateCamera(CameraUpdateFactory.newCameraPosition(cameraPosition))
+                }
             }
         }
     }
+
 
     private val REQUEST_CODE_LOCATION = 1002
 
@@ -198,25 +215,14 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
                         )
                         Log.d("Distancia", "$distance, $checkRange")
 
-                        if (checkRange && distance >= 10f) {
+                        if (checkRange && distance >= 30f) {
                             showAlertDialog(this@MapaActivity)
                         } else {
                             setupMapMarkersAndRoutes()
                             CoroutineScope(Dispatchers.IO).launch {
                                 val tokenRequest = TokenRequest(token)
                                 useVehicle(token, vehicleIdentifier)
-                                val response = ApiHelper().prepareApi().startTrip(tokenRequest, routeID)
-                                if (response.isSuccessful) {
-                                    Log.d("API Respose", "$response")
-                                    Log.d("API Response", "$tokenRequest, $routeID")
-                                    Log.d("API Response", "Listo para iniciar viaje")
-                                    startTravel()
-                                } else {
-                                    Log.e(
-                                        "API Error",
-                                        "Error al enviar ubicacion: ${response.code()} ${response.message()}"
-                                    )
-                                }
+
                             }
                         }
                     }
@@ -226,7 +232,7 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
 
-    private fun useVehicle(token: String, vehicleIdentifier: String) {
+    private suspend fun useVehicle(token: String, vehicleIdentifier: String) {
         val service = ApiHelper().prepareApi()
         val tokenRequest = TokenRequest(token)
         Log.d("Debug", "enviando vehiculo a utilizar: $vehicleIdentifier")
@@ -243,6 +249,20 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
                 if (responseBody != null) {
                     when (responseBody.error) {
                         0 -> {
+                            CoroutineScope(Dispatchers.Main).launch {
+                                val response = ApiHelper().prepareApi().startTrip(tokenRequest, routeID)
+                                if (response.isSuccessful) {
+                                    Log.d("API Respose", "$response")
+                                    Log.d("API Response", "$tokenRequest, $routeID")
+                                    Log.d("API Response", "Listo para iniciar viaje")
+                                    startTravel()
+                                } else {
+                                    Log.e(
+                                        "API Error",
+                                        "Error al enviar ubicacion: ${response.code()} ${response.message()}"
+                                    )
+                                }
+                            }
                         }
 
                         2 -> {
@@ -498,11 +518,8 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
                     if (infoFragment is InfoFragment) {
                         val startTravelFragment = infoFragment
                         startTravelFragment.updateData(waitTime)
-                        if (waitTime.nextName == busStops[0].name && waitTime.nextDistance < 10f && busStopCounter > 0) {
+                        if (waitTime.inTerminal == 1) {
                             endTravel()
-                        }
-                        if (waitTime.nextName == busStops[busStopCounter].name && waitTime.nextDistance < 10f) {
-                            busStopCounter += 1
                         }
                     }
                 }
@@ -522,6 +539,7 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
                 if (responseBody != null) {
                     when (responseBody.error) {
                         0 -> {
+                            finish()
                         }
 
                         1 -> {
@@ -539,7 +557,6 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
                 }
             }
         )
-
     }
 
 
@@ -566,11 +583,11 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
         val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
         vibrator.vibrate(VibrationEffect.createOneShot(1000, VibrationEffect.DEFAULT_AMPLITUDE))
         val builder = AlertDialog.Builder(this)
-        builder.setTitle("¡Llegaste a tu destino!")
-            .setMessage("Haz llegado a tu destino, gracias por viajar con Nintrip :)")
+        builder.setTitle("¡Terminaste la ruta!")
+            .setMessage("Haz llegado a la ruta, gracias por viajar con Nintrip :)")
             .setPositiveButton("OK") { dialog, _ ->
                 dialog.dismiss()
-                finish()
+                leaveVehicle()
             }
             .setCancelable(false)
         builder.create().show()
