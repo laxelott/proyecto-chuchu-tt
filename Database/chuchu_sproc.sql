@@ -941,13 +941,19 @@ sp: BEGIN
 
     SELECT
         0 AS error,
-        v.identifier as identifier,
-        (SELECT name FROM Stop WHERE idStop = vIdNextStop) as nextName,
-        vDistanceToNext as nextDistance,
-        (vDistanceToNext/vAvgSpeed) as nextTime,
-        vTotalDistance as totalDistance,
+        v.identifier AS identifier,
+        (SELECT name FROM Stop WHERE idStop = vIdNextStop) AS nextName,
+        vDistanceToNext AS nextDistance,
+        (vDistanceToNext/vAvgSpeed) AS nextTime,
+        vTotalDistance AS totalDistance,
         (vTotalDistance / vAvgSpeed) AS totalTime,
-        vIdVehicle
+        vIdVehicle,
+        (
+            (SELECT r.idTerminal FROM Route r WHERE r.idRoute = vIdRoute) = 
+            (SELECT s.idNext FROM Stop s WHERE s.idStop = vCurrStop)
+        ) as `ìsTerminal`,
+        (SELECT r.idTerminal FROM Route r WHERE r.idRoute = vIdRoute),
+        vCurrStop
     FROM Vehicle v
         WHERE v.idVehicle = vIdVehicle;
 
