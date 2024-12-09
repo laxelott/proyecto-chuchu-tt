@@ -34,8 +34,6 @@ router.post('/loginadmin', function(req, res, next) {
     let username = req.body.username;
     let password = req.body.password;
 
-    console.log("Datos recibidos:", { username, password });
-
     AuthDAO.loginAdmin(username, password)
         .then((result) => {
             if (result) {
@@ -67,12 +65,18 @@ router.post('/checkToken/:username', function(req, res, next) {
 });
 
 router.post('/checkVehicle/:identifier', function(req, res, next) {
-    console.log(req.body)
-    console.log(req.params)
     let token = req.body.token;
     let identifier = req.params.identifier;
 
     AuthDAO.checkVehicle(token, identifier)
+        .then((result) => {res.send(result)})
+        .catch((err) => {res.send("ERROR: " + err)});
+});
+
+router.post('/forgotPassword/', function(req, res, next) {
+    let username = req.body.username;
+
+    AuthDAO.forgotPassword(username)
         .then((result) => {res.send(result)})
         .catch((err) => {res.send("ERROR: " + err)});
 });

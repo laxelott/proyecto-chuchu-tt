@@ -32,8 +32,6 @@ router.post('/useVehicle/:vehicleIdentifier', function(req, res, next) {
 router.post('/leaveVehicle', function(req, res, next) {
     let token = req.body.token;
 
-    console.log("leaveVehicle")
-
     DriverDAO.leaveVehicle(token)
         .then((result) => {res.send(result)})
         .catch((err) => {res.send("ERROR: " + err)});
@@ -42,8 +40,6 @@ router.post('/leaveVehicle', function(req, res, next) {
 router.post('/startTrip/:routeId', function(req, res, next) {
     let token = req.body.token;
     let routeId = req.params.routeId;
-
-    console.log("----- Start Trip, " + token + ", " + routeId)
     
     DriverDAO.startTrip(token, routeId)
         .then((result) => {res.send(result)})
@@ -52,8 +48,6 @@ router.post('/startTrip/:routeId', function(req, res, next) {
 
 router.post('/endTrip/', function(req, res, next) {
     let token = req.body.token;
-
-    console.log("----- End Trip, " + token)
     
     DriverDAO.endTrip(token)
         .then((result) => {res.send(result)})

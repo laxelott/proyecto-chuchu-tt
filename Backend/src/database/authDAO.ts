@@ -117,4 +117,13 @@ export class AuthDAO {
     
         return results[0];
     }
+    
+    static async forgotPassword(username: any) {
+        const results: any = await SQLPool.query(
+            "CALL forgotPassword(?)",
+            [username]
+        );
+    
+        return results[0];
+    }
 }

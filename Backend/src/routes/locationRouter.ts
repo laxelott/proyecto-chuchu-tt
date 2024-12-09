@@ -7,8 +7,6 @@ router.post('/register/:lat/:long', function(req, res, next) {
     let lat = Number.parseFloat(req.params.lat);
     let long = Number.parseFloat(req.params.long);
 
-    console.log(`write location: (${lat}, ${long})`)
-
     LocationDAO.writeLocation(lat, long);
 })
 
@@ -17,11 +15,6 @@ router.post('/reportLocation/:lat/:lon', function(req, res, next) {
     let lon = Number.parseFloat(req.params.lon);
     let token: string = req.body.token;
     let speed: number = req.body.speed;
-
-    console.log("---------");
-    console.log("ReportLocation");
-    console.log(req.body);
-    console.log(req.params);
 
     LocationDAO.reportLocation(lat, lon, token, speed)
         .then((result) => {res.json(result)})
