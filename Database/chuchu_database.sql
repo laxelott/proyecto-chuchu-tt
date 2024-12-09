@@ -40,6 +40,7 @@ CREATE TABLE `Driver`(
     `phone` varchar(20) NOT NULL,
     `active` tinyint NOT NULL,
     `token` varchar(40) UNIQUE,
+    `requiresReset` boolean NOT NULL DEFAULT 0,
     CONSTRAINT `PK_Driver` PRIMARY KEY (`idDriver` ASC)
 );
 
