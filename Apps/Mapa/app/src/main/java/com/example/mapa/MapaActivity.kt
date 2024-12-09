@@ -9,6 +9,10 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import android.location.Location
 import android.net.Uri
 import android.os.Build
@@ -68,7 +72,7 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
 
-class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
+class MapaActivity : AppCompatActivity(), OnMapReadyCallback, SensorEventListener {
 
     private lateinit var mMap: GoogleMap
     private lateinit var binding: ActivityMapaTransporteBinding
@@ -87,16 +91,25 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
     private val locationCallback = object : LocationCallback() {
         override fun onLocationResult(locationResult: LocationResult) {
             locationResult.locations.forEach { location ->
+                // Actualizar la ubicación actual
                 currentLocation = LatLng(location.latitude, location.longitude)
+
+                // Actualizar la velocidad
                 speed = if (location.hasSpeed()) {
                     val speedInMetersPerSecond = location.speed
                     speedInMetersPerSecond
                 } else {
                     0.0F
                 }
+
+                // Actualizar la posición de la cámara
+                currentLocation.let { currentLatLng ->
+                    updateCameraPosition()
+                }
             }
         }
     }
+
 
     private val REQUEST_CODE_LOCATION = 1002
 
@@ -118,6 +131,11 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
     private var isFetchingData = false
     private var hasFetchedBusStops = false
 
+
+    private lateinit var sensorManager: SensorManager
+    private var rotationVectorSensor: Sensor? = null
+    private var azimuth: Float = 0.0f
+    private var lastAzimuth: Float = 0.0f
 
 
 
@@ -144,6 +162,10 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
         progressBar = findViewById(R.id.progress_bar)
         background = findViewById(R.id.ownBackground)
 
+        sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
+        rotationVectorSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
+
+
 
         // Initialize directions API
         val retrofit = Retrofit.Builder()
@@ -160,6 +182,44 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
 
     override fun onBackPressed() {
         // No hacer nada aquí bloquea el botón "Atrás"
+    }
+
+
+    override fun onResume() {
+        super.onResume()
+        // Registra el listener del sensor
+        rotationVectorSensor?.let {
+            sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_UI)
+        }
+    }
+
+    override fun onSensorChanged(event: SensorEvent?) {
+        if (event?.sensor?.type == Sensor.TYPE_ROTATION_VECTOR) {
+            val rotationMatrix = FloatArray(9)
+            val orientationAngles = FloatArray(3)
+
+            SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
+            SensorManager.getOrientation(rotationMatrix, orientationAngles)
+
+            val newAzimuth = Math.toDegrees(orientationAngles[0].toDouble()).toFloat()
+            val normalizedAzimuth = (newAzimuth + 360) % 360
+
+            if (Math.abs(normalizedAzimuth - lastAzimuth) > 2) { // Cambia solo si supera los 2 grados
+                lastAzimuth = normalizedAzimuth
+                azimuth = lastAzimuth
+                updateCameraPosition()
+            }
+        }
+    }
+
+    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
+        // No es necesario manejar este evento en este caso
+    }
+
+    override fun onPause() {
+        super.onPause()
+        // Detén las actualizaciones del sensor
+        sensorManager.unregisterListener(this)
     }
 
     private fun updateCurrentLocation() {
@@ -198,25 +258,14 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
                         )
                         Log.d("Distancia", "$distance, $checkRange")
 
-                        if (checkRange && distance >= 10f) {
+                        if (checkRange && distance >= 30f) {
                             showAlertDialog(this@MapaActivity)
                         } else {
                             setupMapMarkersAndRoutes()
                             CoroutineScope(Dispatchers.IO).launch {
                                 val tokenRequest = TokenRequest(token)
                                 useVehicle(token, vehicleIdentifier)
-                                val response = ApiHelper().prepareApi().startTrip(tokenRequest, routeID)
-                                if (response.isSuccessful) {
-                                    Log.d("API Respose", "$response")
-                                    Log.d("API Response", "$tokenRequest, $routeID")
-                                    Log.d("API Response", "Listo para iniciar viaje")
-                                    startTravel()
-                                } else {
-                                    Log.e(
-                                        "API Error",
-                                        "Error al enviar ubicacion: ${response.code()} ${response.message()}"
-                                    )
-                                }
+
                             }
                         }
                     }
@@ -226,7 +275,7 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
 
-    private fun useVehicle(token: String, vehicleIdentifier: String) {
+    private suspend fun useVehicle(token: String, vehicleIdentifier: String) {
         val service = ApiHelper().prepareApi()
         val tokenRequest = TokenRequest(token)
         Log.d("Debug", "enviando vehiculo a utilizar: $vehicleIdentifier")
@@ -243,6 +292,20 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
                 if (responseBody != null) {
                     when (responseBody.error) {
                         0 -> {
+                            CoroutineScope(Dispatchers.Main).launch {
+                                val response = ApiHelper().prepareApi().startTrip(tokenRequest, routeID)
+                                if (response.isSuccessful) {
+                                    Log.d("API Respose", "$response")
+                                    Log.d("API Response", "$tokenRequest, $routeID")
+                                    Log.d("API Response", "Listo para iniciar viaje")
+                                    startTravel()
+                                } else {
+                                    Log.e(
+                                        "API Error",
+                                        "Error al enviar ubicacion: ${response.code()} ${response.message()}"
+                                    )
+                                }
+                            }
                         }
 
                         2 -> {
@@ -498,11 +561,8 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
                     if (infoFragment is InfoFragment) {
                         val startTravelFragment = infoFragment
                         startTravelFragment.updateData(waitTime)
-                        if (waitTime.nextName == busStops[0].name && waitTime.nextDistance < 10f && busStopCounter > 0) {
+                        if (waitTime.inTerminal == 1) {
                             endTravel()
-                        }
-                        if (waitTime.nextName == busStops[busStopCounter].name && waitTime.nextDistance < 10f) {
-                            busStopCounter += 1
                         }
                     }
                 }
@@ -522,6 +582,7 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
                 if (responseBody != null) {
                     when (responseBody.error) {
                         0 -> {
+                            finish()
                         }
 
                         1 -> {
@@ -539,7 +600,6 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
                 }
             }
         )
-
     }
 
 
@@ -566,11 +626,11 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
         val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
         vibrator.vibrate(VibrationEffect.createOneShot(1000, VibrationEffect.DEFAULT_AMPLITUDE))
         val builder = AlertDialog.Builder(this)
-        builder.setTitle("¡Llegaste a tu destino!")
-            .setMessage("Haz llegado a tu destino, gracias por viajar con Nintrip :)")
+        builder.setTitle("¡Terminaste la ruta!")
+            .setMessage("Haz llegado a la ruta, gracias por viajar con Nintrip :)")
             .setPositiveButton("OK") { dialog, _ ->
                 dialog.dismiss()
-                finish()
+                leaveVehicle()
             }
             .setCancelable(false)
         builder.create().show()
@@ -729,15 +789,15 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
         textViewInst.text = instructions
     }
 
-    private fun updateCameraPosition(location: Location) {
+    private fun updateCameraPosition() {
         val cameraPosition = CameraPosition.Builder()
-            .target(LatLng(location.latitude, location.longitude))
+            .target(currentLocation)
             .zoom(19.4f)
-            .bearing(location.bearing)
-            .tilt(45f)
+            .bearing(azimuth)
+            .tilt(90f)
             .build()
 
-        mMap.animateCamera(CameraUpdateFactory.newCameraPosition(cameraPosition))
+        mMap.moveCamera(CameraUpdateFactory.newCameraPosition(cameraPosition))
     }
 
     private fun showAlertDialog(context: Context) {
@@ -1126,7 +1186,7 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback {
             if (location != null) {
                 lastLocation = location
                 currentLocation = LatLng(location.latitude, location.longitude)
-                mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLocation, 16f))
+                updateCameraPosition()
             }
         }
     }

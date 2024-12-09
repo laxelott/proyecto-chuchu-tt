@@ -32,8 +32,7 @@ class SelectedTransportActivity : AppCompatActivity() {
         btnBack = findViewById(R.id.textViewBack)
         //Back to home
         btnBack.setOnClickListener {
-            val intent = Intent (this, MainActivity::class.java)
-            startActivity(intent)
+            finish()
         }
 
         // Getting the transportID

@@ -367,6 +367,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
                                 .icon(markerIcon)
                                 .anchor(0.0f, 0.8f)
                                 .rotation(driver.direction)
+                                .flat(true)
                         )
 
                         marker?.tag = MarkerTag(type = "driverLocation", mode = infoWindowMode)
@@ -471,7 +472,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
             resizedBitmap.height + outlineWidth.toInt() * 2,
             Bitmap.Config.ARGB_8888
         )
-        
+
         val canvas = Canvas(outlineBitmap)
         val paint = Paint().apply {
             isAntiAlias = true
@@ -869,8 +870,11 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
                             if (infoFragment is StartTravelFragment) {
                                 val startTravelFragment = infoFragment
+                                val distanceCheck = calculateDistance(
+                                    LatLng(currentLocation.latitude, currentLocation.longitude), LatLng(
+                                        busStops[0].latitude, busStops[0].longitude))
                                 startTravelFragment.setBusStop(busStops[0])
-                                if (info.totalDistance <= 20f) {
+                                if (info.arrived == 1 && distanceCheck < 20f) {
                                     startTravelFragment.enableStartButton()
                                 } else {
                                     startTravelFragment.disableStartButton()
@@ -900,7 +904,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         if (response.nextName == busStops.last().name && !alertShown) {
             alertUserForFinalDestination()
             alertShown = true
-        } else if (response.nextDistance < 10f && alertShown) { // Bajaaan
+        } else if (response.arrived == 1 && alertShown) { // Bajaaan
             arrivalAlert()
             showNotification(this)
             endTravel() // Stop API call here
@@ -1005,7 +1009,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
                 }
             }
         }
-        
+
 
         mMap.setOnMapClickListener {
             if (isMarkerSelected && infoWindowMode == InfoMode.TARGETED) {
@@ -1196,7 +1200,7 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         // Create first and last stops with custom colors
         createMarker(busStops.first(), Color.GREEN)
         createMarker(busStops.last(), Color.RED)
-        
+
         // Remove first and last stops
         busStops.withIndex().filter { it.index != 0 && it.index != busStops.lastIndex }
         for ((i, busStop) in busStops.subList(1, busStops.size - 1).withIndex()) {

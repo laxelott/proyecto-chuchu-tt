@@ -8,5 +8,6 @@ data class InfoResponse (
     val nextTime: Float,
     val totalDistance: Float,
     val totalTime: Float,
-    val message: String
+    val message: String,
+    val inTerminal: Int
 )

@@ -76,7 +76,7 @@
                 android:layout_height="wrap_content"
                 android:fontFamily="@font/poppins"
                 android:gravity="center"
-                android:text="Distancia total"
+                android:text="Distancia a tu estación"
                 android:textColor="@color/white"
                 android:textSize="12sp" />
 
@@ -95,7 +95,7 @@
                 android:layout_height="wrap_content"
                 android:fontFamily="@font/poppins"
                 android:gravity="center"
-                android:text="Tiempo de llegada"
+                android:text="Tiempo de espera"
                 android:textColor="@color/white"
                 android:textSize="12sp" />
 

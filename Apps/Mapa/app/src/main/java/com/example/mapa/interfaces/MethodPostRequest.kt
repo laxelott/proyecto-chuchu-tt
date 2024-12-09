@@ -85,8 +85,12 @@ interface ApiService {
         val reason: String
     )
     @POST("driver/cancelTrip")
-    suspend fun cancelTrip(
-        @Body token: CancelTrip
-    ): Response<GenericResponse>
+    suspend fun cancelTrip(@Body token: CancelTrip): Response<GenericResponse>
+
+    data class ForgotPassword (
+        val username: String
+    )
+    @POST("auth/forgotPassword")
+    suspend fun forgotPassword(@Body data: ForgotPassword): Response<GenericResponse>
 
 }
