@@ -110,6 +110,8 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback, SensorEventListene
         }
     }
 
+    private var zoomLevel: Float = 19.4f
+
 
     private val REQUEST_CODE_LOCATION = 1002
 
@@ -187,6 +189,9 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback, SensorEventListene
 
     override fun onResume() {
         super.onResume()
+        lifecycleScope.launch {
+            fetchDataInBackground()
+        }
         // Registra el listener del sensor
         rotationVectorSensor?.let {
             sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_UI)
@@ -263,10 +268,37 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback, SensorEventListene
                         } else {
                             setupMapMarkersAndRoutes()
                             CoroutineScope(Dispatchers.IO).launch {
-                                val tokenRequest = TokenRequest(token)
-                                useVehicle(token, vehicleIdentifier)
-
+                                checkVehicle(token, vehicleIdentifier)
                             }
+                        }
+                    }
+                }
+            }
+        )
+    }
+
+    private suspend fun checkVehicle(token: String, vehicleIdentifier: String) {
+        val service = ApiHelper().prepareApi()
+        val tokenRequest = TokenRequest(token)
+        ApiHelper().getDataFromDB(
+            serviceCall = {
+                service.checkVehicle(
+                    vehicleIdentifier,
+                    tokenRequest
+                )
+            }, // Pasamos la función que hace la solicitud
+            processResponse = { response ->
+                val responseBody = response.body()
+                if (responseBody != null) {
+                    when (responseBody.error) {
+                        0 -> {
+                            CoroutineScope(Dispatchers.IO).launch {
+                                useVehicle(token, vehicleIdentifier)
+                            }
+                        }
+
+                        1 -> {
+                            finish()
                         }
                     }
                 }
@@ -309,7 +341,7 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback, SensorEventListene
                         }
 
                         2 -> {
-                            if (checkRange) newAlertDialog(
+                            newAlertDialog(
                                 "¡Alerta!",
                                 "Este vehículo ya está en uso"
                             )
@@ -792,12 +824,12 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback, SensorEventListene
     private fun updateCameraPosition() {
         val cameraPosition = CameraPosition.Builder()
             .target(currentLocation)
-            .zoom(19.4f)
+            .zoom(zoomLevel)
             .bearing(azimuth)
             .tilt(90f)
             .build()
 
-        mMap.moveCamera(CameraUpdateFactory.newCameraPosition(cameraPosition))
+        mMap.animateCamera(CameraUpdateFactory.newCameraPosition(cameraPosition))
     }
 
     private fun showAlertDialog(context: Context) {
@@ -1051,7 +1083,8 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback, SensorEventListene
 
     private fun setupLocationButton() {
         btnLocation.setOnClickListener {
-            mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(currentLocation, 18f))
+            zoomLevel = if (zoomLevel > 19f) 18f else 19.4f
+            updateCameraPosition()
         }
     }
 

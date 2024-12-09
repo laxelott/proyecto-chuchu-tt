@@ -27,6 +27,12 @@ interface ApiService {
         @Body token: TokenRequest
     ): Response<GenericResponse>
 
+    @POST("auth/checkVehicle/{vehicleIdentifier}")
+    suspend fun checkVehicle(
+        @Path("vehicleIdentifier") idVehicle: String,
+        @Body token: TokenRequest
+    ): Response<GenericResponse>
+
     @POST("driver/leaveVehicle/")
     suspend fun leaveVehicle(@Body token: TokenRequest): Response<GenericResponse>
 
