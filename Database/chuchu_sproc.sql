@@ -43,12 +43,13 @@ BEGIN
     CALL generateToken(newToken);
 
     IF (SELECT token FROM Driver d WHERE d.username = pUsername) IS NOT NULL THEN
-        SELECT 2 INTO login;
+        SET login = 2;
     ELSE
-        SELECT count(*) AS auth FROM Driver d
+        SET login = (
+            SELECT count(*) AS auth FROM Driver d
             WHERE d.username = pUsername
-            AND d.password = pPassword
-            INTO login;
+                AND d.password = pPassword
+        );
         
         UPDATE Driver d
             SET d.token = newToken
@@ -57,6 +58,10 @@ BEGIN
     END IF;
    
     IF login = 1 THEN
+        UPDATE Driver d
+            SET requiresReset = 0
+        WHERE d.username = pUsername;
+
         SELECT login, newToken as token;
     ELSE
         SELECT login;
@@ -186,8 +191,7 @@ BEGIN
     );
 
     -- Get terminal
-    SELECT idTerminal FROM Route WHERE idRoute = pIdRoute
-        INTO nextStopId;
+    SET nextStopId = (SELECT idTerminal FROM Route WHERE idRoute = pIdRoute);
 
     -- Fill route with linked stops
     WHILE
@@ -218,8 +222,7 @@ BEGIN
         )
         WHERE id = nextStopId;
 
-        SELECT idNext FROM Stop WHERE idStop = nextStopId
-        INTO nextStopId;
+        SET nextStopId = (SELECT idNext FROM Stop WHERE idStop = nextStopId);
     END WHILE;
 
     SELECT * FROM temp_StopsInRoute;
@@ -369,12 +372,11 @@ sp: BEGIN
         LEAVE sp;
     END IF;
 
-    SELECT v.idVehicle FROM Vehicle v
-        WHERE driverToken = pToken
-        INTO vIdVehicle;
-    SELECT idTerminal FROM Route
-        WHERE idRoute = pIdRoute
-        INTO vIdStop;
+
+    SET vIdVehicle = (SELECT v.idVehicle FROM Vehicle v
+        WHERE driverToken = pToken);
+    SET vIdStopSELECT = (idTerminal FROM Route
+        WHERE idRoute = pIdRoute);
     
     DELETE FROM Last_Location
         WHERE idVehicle = vIdVehicle;
@@ -1091,7 +1093,7 @@ BEGIN
         SET newToken = MD5(RAND());
     END WHILE;
 
-    SELECT newToken INTO tokenOut;
+    SET tokenOut = newToken;
 
 END$$
 
@@ -1139,10 +1141,8 @@ BEGIN
     DECLARE vIdDriver INT;
     DECLARE vIdVehicle INT;
 
-    SELECT idDriver FROM Driver WHERE curp = pCurp
-        INTO vIdDriver;
-    SELECT idVehicle FROM Vehicle WHERE identifier = pIdentifier
-        INTO vIdVehicle;
+    SET vIdDriver = (SELECT idDriver FROM Driver WHERE curp = pCurp);
+    SET vIdVehicle = (SELECT idVehicle FROM Vehicle WHERE identifier = pIdentifier);
 
     IF (
         SELECT COUNT(*) FROM Driver_Vehicle
@@ -1165,7 +1165,7 @@ CREATE PROCEDURE forgotPassword(
 )
 sp: BEGIN
 
-    IF (COUNT(*) FROM Driver WHERE username = pUsername) = 0 THEN
+    IF (SELECT COUNT(*) FROM Driver WHERE username = pUsername) = 0 THEN
         SELECT 1 AS error, 'username-not-found' AS message;
     END IF;
 
@@ -1243,15 +1243,13 @@ BEGIN
     DECLARE `vIdNext` int;
 
     IF (SELECT COUNT(*) FROM Stop s WHERE s.idRoute = pIdRoute AND s.name = pNameNext ) > 0 THEN
-        SELECT idStop FROM Stop s WHERE s.idRoute = pIdRoute AND s.name = pNameNext
-            INTO vIdNext;
+        SET vIdNext = (SELECT idStop FROM Stop s WHERE s.idRoute = pIdRoute AND s.name = pNameNext);
     ELSE
         SET vIdNext = NULL;
     END IF;
 
     IF (SELECT COUNT(*) FROM Stop s WHERE s.idRoute = pIdRoute AND s.name = pName) > 0 THEN
-        SELECT s.idStop FROM Stop s WHERE s.idRoute = pIdRoute AND s.name = pName
-            INTO vCurrIdStop;
+        SET vCurrIdStop = (SELECT s.idStop FROM Stop s WHERE s.idRoute = pIdRoute AND s.name = pName);
         
         -- remove from chain
         UPDATE Stop s SET
@@ -1270,7 +1268,7 @@ BEGIN
             pIdRoute, pName, plon, plat, -1
         );
 
-        SELECT LAST_INSERT_ID() INTO vCurrIdStop;
+        SET vCurrIdStop = LAST_INSERT_ID();
     END IF;
 
     -- link into chain
@@ -1386,12 +1384,11 @@ BEGIN
     CALL generateAdminToken(newToken);
 
     IF (SELECT token FROM Admin d WHERE d.username = pUsername) IS NOT NULL THEN
-        SELECT 2 INTO login;
+        SET login = 2;
     ELSE
-        SELECT count(*) AS auth FROM Admin d
+        SET login = (SELECT count(*) AS auth FROM Admin d
             WHERE d.username = pUsername
-            AND d.password = pPassword
-            INTO login;
+            AND d.password = pPassword);
         
         UPDATE Admin d
             SET d.token = newToken
@@ -1442,7 +1439,7 @@ BEGIN
         SET newToken = MD5(RAND());
     END WHILE;
 
-    SELECT newToken INTO tokenOut;
+    SET tokenOut = newToken;
 
 END$$
 
