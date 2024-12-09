@@ -2,18 +2,28 @@ USE Chuchu;
 
 DELIMITER $$
 
--- -----------------------------------------------------------------------------
-  -- testData
--- -----------------------------------------------------------------------------
-DROP PROCEDURE IF EXISTS testData$$
-CREATE PROCEDURE testData()
-BEGIN
 
-    IF (SELECT COUNT(*) FROM Driver) > 0 THEN
-        SELECT ( CONCAT(d.name, ' (', d.curp, ')') ) AS 'test' FROM Driver d LIMIT 1;
-    ELSE
-        SELECT 'Funcionando, pero no hay conductores :c' AS 'test';
-    END IF;
+-- -----------------------------------------------------------------------------
+  -- getHaversineDelta
+-- -----------------------------------------------------------------------------
+DROP PROCEDURE IF EXISTS getHaversineDelta$$
+CREATE PROCEDURE getHaversineDelta(
+    x1 float,
+    y1 float,
+    x2 float,
+    y2 float,
+    OUT outHaversine FLOAT
+)
+BEGIN
+    
+    SET @R = 6371000;
+    SET outHaversine = (
+        @R * 2 * ASIN(SQRT(
+                POWER(SIN(RADIANS(y2 - y1) / 2), 2) +
+                COS(RADIANS(y1)) * COS(RADIANS(y2)) * 
+                POWER(SIN(RADIANS(x2 - x1) / 2), 2)
+            ))
+    );
 
 END$$
 
@@ -543,6 +553,7 @@ sp: BEGIN
 
 END$$
 
+
 -- -----------------------------------------------------------------------------
   -- reportLocation
 -- -----------------------------------------------------------------------------
@@ -559,8 +570,10 @@ sp: BEGIN
     DECLARE haversineDelta float;
     DECLARE defaultIdStop int;
     DECLARE vBearing double;
-    DECLARE distanceToNext int;
+    DECLARE distanceToNext float;
+    DECLARE distanceToLast float;
     DECLARE vIdStop int;
+    DECLARE vIdNextStop int;
     
     SET vIdVehicle = (SELECT idVehicle FROM Vehicle v WHERE v.driverToken = pToken);
     SET defaultIdStop = ( -- First stop in route
@@ -602,66 +615,70 @@ sp: BEGIN
         );
         SET vBearing = MOD(vBearing+360, 360);
 
-        SET @R = 6371000;
-
-        SET haversineDelta = (
-            SELECT
-                @R * 2 * ASIN(SQRT(
-                    POWER(SIN(RADIANS(pLat - ll.lat) / 2), 2) +
-                    COS(RADIANS(ll.lat)) * COS(RADIANS(pLat)) * 
-                    POWER(SIN(RADIANS(pLon - ll.lon) / 2), 2)
-                ))
-            FROM Last_Location ll
-            WHERE idVehicle = vIdVehicle
+        CALL getHaversineDelta(
+            (SELECT lon FROM Last_Location WHERE idVehicle = vIdVehicle),
+            (SELECT lat FROM Last_Location WHERE idVehicle = vIdVehicle),
+            pLon,
+            pLat,
+            haversineDelta
         );
 
-        SET vIdStop = IFNULL(
-            (
-                SELECT s.idStop FROM Stop s
+        SET vIdStop = (
+            SELECT s.idStop FROM Stop s
                 INNER JOIN Stop sl ON sl.idNext = s.idStop
                 INNER JOIN Last_Location ll ON sl.idStop = ll.idLastStop
                 WHERE ll.idVehicle = vIdVehicle
-            ),
-            (
-                SELECT idStop FROM Stop s
-                INNER JOIN Vehicle_Route vr ON s.idRoute = vr.idRoute
-                WHERE vr.idVehicle = vIdVehicle AND idNext IS NULL
-            )
+        );
+        SET vIdNextStop = (
+            SELECT idStop FROM Stop WHERE idStop = (SELECT idNext FROM Stop WHERE idStop = vIdStop)
         );
 
-        -- Check distance to next stop with Haversine
-        SET distanceToNext = (
-            SELECT
-                @R * 2 * ASIN(SQRT(
-                    POWER(SIN(RADIANS(pLat - s.lat) / 2), 2) +
-                    COS(RADIANS(s.lat)) * COS(RADIANS(pLat)) * 
-                    POWER(SIN(RADIANS(pLon - s.lon) / 2), 2)
-                ))
-            FROM Stop s
-            WHERE s.idStop = vIdStop
+        CALL getHaversineDelta(
+            (SELECT lon FROM Stop WHERE idStop = vIdStop),
+            (SELECT lat FROM Stop WHERE idStop = vIdStop),
+            pLon,
+            pLat,
+            distanceToNext
         );
+
+        UPDATE VehicleData SET
+            direction = vBearing
+            WHERE idVehicle = vIdVehicle;    
 
         -- Check if next distance is on trigger or somehow we got past it
-        IF (distanceToNext < 10 OR (SELECT distanceToStop FROM VehicleData WHERE idVehicle = vIdVehicle) < -5) THEN
+        IF (distanceToNext < 20) THEN
+            IF (SELECT inStop FROM VehicleData WHERE idVehicle = vIdVehicle) = 0 THEN
+                UPDATE VehicleData SET
+                    inStop = 1;
+            END IF;
+
             UPDATE Last_Location SET
                 idLastStop = vIdStop,
                 lon = (SELECT lon FROM Stop WHERE idStop = vIdStop),
                 lat = (SELECT lat FROM Stop WHERE idStop = vIdStop)
                 WHERE idVehicle = vIdVehicle;
+
             UPDATE VehicleData SET
-                direction = vBearing,
-                distanceToStop = (
-                    SELECT distanceTo FROM Stop WHERE idStop = IFNULL(
-                        (SELECT idNext FROM Stop WHERE idStop = vIdStop),
-                        defaultIdStop
-                    )
-                )
-                WHERE idVehicle = vIdVehicle;
+                distanceToStop = 0
+                WHERE idVehicle = vIdVehicle;    
         ELSE
-            UPDATE VehicleData SET
-                direction = vBearing,
-                distanceToStop = distanceToStop - haversineDelta
-                WHERE idVehicle = vIdVehicle;
+            IF (SELECT inStop FROM VehicleData WHERE idVehicle = vIdVehicle) = 1 THEN
+                UPDATE VehicleData SET
+                    inStop = 0;
+                
+                UPDATE Last_Location SET
+                    idLastStop = vIdStop
+                    WHERE idVehicle = vIdVehicle;
+
+                UPDATE VehicleData SET
+                    distanceToStop = (SELECT distanceTo FROM Stop WHERE idStop = vIdNextStop)
+                    WHERE idVehicle = vIdVehicle;
+            ELSE
+                UPDATE VehicleData SET
+                    distanceToStop = GREATEST(0, distanceToStop - haversineDelta)
+                    WHERE idVehicle = vIdVehicle;
+            END IF;
+
             UPDATE Last_Location SET
                 lon = pLon,
                 lat = pLat
@@ -682,6 +699,7 @@ sp: BEGIN
         WHERE idVehicle = vIdVehicle;
 
 END$$
+
 
 -- -----------------------------------------------------------------------------
   -- getLocations
@@ -896,7 +914,6 @@ sp: BEGIN
     FROM Vehicle v
         INNER JOIN VehicleData vd on vd.idVehicle = v.idVehicle
         WHERE v.idVehicle = vIdVehicle;
-    SELECT * from testValues;
 
 END$$
 
