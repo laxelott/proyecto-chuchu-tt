@@ -279,7 +279,7 @@ sp: BEGIN
         SELECT 2 as error, 'vehicle-disabled' as message;
         LEAVE sp;
     END IF;
-    IF (SELECT COUNT(*) FROM Vehicle WHERE identifier = pVehicleIdentifier AND driverToken = pToken) > 0 THEN
+    IF (SELECT COUNT(*) FROM Vehicle WHERE identifier = pVehicleIdentifier AND driverToken <> pToken) > 0 THEN
         SELECT 2 as error, 'vehicle-in-use' as message;
         LEAVE sp;
     END IF;
@@ -375,7 +375,7 @@ sp: BEGIN
 
     SET vIdVehicle = (SELECT v.idVehicle FROM Vehicle v
         WHERE driverToken = pToken);
-    SET vIdStopSELECT = (idTerminal FROM Route
+    SET vIdStop = (SELECT idTerminal FROM Route
         WHERE idRoute = pIdRoute);
     
     DELETE FROM Last_Location
@@ -1542,6 +1542,37 @@ BEGIN
     FROM Chuchu.Stop;
 
 END$$
+
+
+-- -----------------------------------------------------------------------------
+  -- freeVehicles
+-- -----------------------------------------------------------------------------
+DROP PROCEDURE IF EXISTS freeVehicles$$
+CREATE PROCEDURE freeVehicles()
+BEGIN
+
+    DELETE FROM VehicleData;
+    DELETE FROM Last_Location;
+    UPDATE Vehicle SET
+        driverToken = NULL,
+        disabled = 0;
+END$$
+
+
+-- -----------------------------------------------------------------------------
+  -- resetData
+-- -----------------------------------------------------------------------------
+DROP PROCEDURE IF EXISTS resetData$$
+CREATE PROCEDURE resetData()
+BEGIN
+
+    CALL freeVehicles();
+    UPDATE Driver SET
+        token = NULL,
+        requiresReset = 0;
+
+END$$
+
 
 -- -----------------------------------------------------------------------------
   -- testDriverData
