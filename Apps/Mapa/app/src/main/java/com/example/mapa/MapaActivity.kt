@@ -191,6 +191,7 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback, SensorEventListene
         super.onResume()
         lifecycleScope.launch {
             fetchDataInBackground()
+            //checkVehicle(token, vehicleIdentifier)
         }
         // Registra el listener del sensor
         rotationVectorSensor?.let {
@@ -268,7 +269,7 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback, SensorEventListene
                         } else {
                             setupMapMarkersAndRoutes()
                             CoroutineScope(Dispatchers.IO).launch {
-                                checkVehicle(token, vehicleIdentifier)
+                                useVehicle(token, vehicleIdentifier)
                             }
                         }
                     }
@@ -292,8 +293,8 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback, SensorEventListene
                 if (responseBody != null) {
                     when (responseBody.error) {
                         0 -> {
-                            CoroutineScope(Dispatchers.IO).launch {
-                                useVehicle(token, vehicleIdentifier)
+                            CoroutineScope(Dispatchers.Main).launch {
+                                startTravel()
                             }
                         }
 
