@@ -823,6 +823,11 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback, SensorEventListene
     }
 
     private fun updateCameraPosition() {
+        if (!::mMap.isInitialized) {
+            Log.e("MapError", "Map is not initialized yet")
+            return
+        }
+
         val cameraPosition = CameraPosition.Builder()
             .target(currentLocation)
             .zoom(zoomLevel)
