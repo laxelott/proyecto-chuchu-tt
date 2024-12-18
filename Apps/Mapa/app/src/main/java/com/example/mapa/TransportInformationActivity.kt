@@ -233,7 +233,7 @@ class TransportInformationActivity : AppCompatActivity() {
                         showErrorDialog("Usuario deshabilitado, contacte a un administrador")
                     }
                     allDriverInfo = infoVehicles
-                    Log.e("driver info", "$infoVehicles")
+                    Log.e("driver info", "$allDriverInfo")
                     updateUIWithDriverInfo(allDriverInfo)
                 } else {
                     showErrorDialog("Error al cargar la información del conductor.")
@@ -243,6 +243,11 @@ class TransportInformationActivity : AppCompatActivity() {
     }
 
     private fun updateUIWithDriverInfo(allInfo: List<DriverInfo>) {
+        if (allInfo.isEmpty()) {
+            showErrorDialog("No se encontró información del conductor.")
+            return
+        }
+
         val options: MutableList<String> = mutableListOf("Selecciona una opción")
         for (driverInfo in allInfo) {
             options += driverInfo.vehicleIdentifier
@@ -253,18 +258,24 @@ class TransportInformationActivity : AppCompatActivity() {
         titleTransportRoute.setBackgroundColor(color)
         titleTransportRoute.text = allInfo[0].routeName
 
-
         val adapter = ArrayAdapter(this, R.layout.custom_spinner, options)
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         spinnerBusOptions.adapter = adapter
+
         btnStart.isEnabled = false
+
         spinnerBusOptions.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(
                 parent: AdapterView<*>,
-                view: View,
+                view: View?,
                 position: Int,
                 id: Long
             ) {
+                if (view == null) {
+                    Log.e("SpinnerError", "Null view in onItemSelected")
+                    return
+                }
+
                 val selectedOption = options[position]
                 btnStart.isEnabled = selectedOption != "Selecciona una opción"
                 if (btnStart.isEnabled) {
@@ -278,6 +289,7 @@ class TransportInformationActivity : AppCompatActivity() {
             }
         }
     }
+
 
     private fun setupStartButton(selectedOption: String, idroute: Int) {
         btnStart.setOnClickListener {

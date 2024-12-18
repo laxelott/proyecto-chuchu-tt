@@ -35,6 +35,14 @@ html(lang='en')
 
         // Mostrar la primera imagen al cargar
         showItem(index);
+
+        document.getElementById('downloadGuide').addEventListener('click', function () {
+          const link = document.createElement('a');
+          link.href = '../files/conductor.apk'; // Ruta a la app
+          link.download = 'conductor.apk'; // Nombre del archivo al descargar
+          link.click();
+        });
+
       });
   body
     header
@@ -66,15 +74,21 @@ html(lang='en')
             | usuario pasajero
         div
           img(src='../images/home.png', alt='Home image')
+        div.download-container
+          button#downloadGuide Descargar Aplicación Pasajero
 
       // Carrusel de imágenes
       .carousel
         .carousel-container
-          img.carousel-item(src='../images/step_1.jpg', alt='Paso 1')
-          img.carousel-item(src='../images/step_2.jpg', alt='Paso 2')
-          img.carousel-item(src='../images/step_3.jpg', alt='Paso 3')
-          img.carousel-item(src='../images/step_4.jpg', alt='Paso 4')
-          img.carousel-item(src='../images/step_5.jpg', alt='Paso 5')
+          img.carousel-item(src='../images/1_pasajero.png', alt='Paso 1')
+          img.carousel-item(src='../images/2_pasajero.png', alt='Paso 2')
+          img.carousel-item(src='../images/3_pasajero.png', alt='Paso 3')
+          img.carousel-item(src='../images/4_pasajero.png', alt='Paso 4')
+          img.carousel-item(src='../images/5_pasajero.png', alt='Paso 5')
+          img.carousel-item(src='../images/6_pasajero.png', alt='Paso 6')
+          img.carousel-item(src='../images/7_pasajero.png', alt='Paso 7')
+          img.carousel-item(src='../images/8_pasajero.png', alt='Paso 8')
+          img.carousel-item(src='../images/9_pasajero.png', alt='Paso 9')
           
         // Controles del carrusel
         .carousel-controls

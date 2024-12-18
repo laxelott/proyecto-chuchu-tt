@@ -71,5 +71,32 @@ body {
         font-size: 18px;
         border-radius: 5px;
     }
+
+    .download-container {
+        margin-top: 2rem;
+        display: flex;
+        justify-content: center;
+      }
+      
+    #downloadGuide {
+        background-color: var(--principal-green);
+        color: white;
+        padding: 10px 20px;
+        font-size: 1rem;
+        font-weight: bold;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: background-color 0.3s ease, transform 0.2s ease;
+      }
+      
+    #downloadGuide:hover {
+        background-color: #006400; /* Un tono más oscuro del verde principal */
+        transform: scale(1.05); /* Efecto de agrandamiento al pasar el mouse */
+      }
+      
+    #downloadGuide:active {
+        transform: scale(0.95); /* Efecto al presionar el botón */
+      }
     
 }
