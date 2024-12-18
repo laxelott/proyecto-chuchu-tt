@@ -138,6 +138,7 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback, SensorEventListene
     private var rotationVectorSensor: Sensor? = null
     private var azimuth: Float = 0.0f
     private var lastAzimuth: Float = 0.0f
+    private var isEnd = false
 
 
 
@@ -594,7 +595,8 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback, SensorEventListene
                     if (infoFragment is InfoFragment) {
                         val startTravelFragment = infoFragment
                         startTravelFragment.updateData(waitTime)
-                        if (waitTime.inTerminal == 1) {
+                        if (waitTime.inTerminal == 1 && !isEnd) {
+                            isEnd = true
                             endTravel()
                         }
                     }
@@ -611,7 +613,7 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback, SensorEventListene
             serviceCall = { service.leaveVehicle(tokenRequest) },
             processResponse = { response ->
                 val responseBody = response.body()
-                Log.d("Response", "$responseBody")
+                Log.d("LeaveVehicle", "$responseBody")
                 if (responseBody != null) {
                     when (responseBody.error) {
                         0 -> {
@@ -629,6 +631,10 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback, SensorEventListene
                                 .setCancelable(false)
                             builder.create().show()
                         }
+
+                        2 -> {
+                            finish()
+                        }
                     }
                 }
             }
@@ -640,7 +646,6 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback, SensorEventListene
         sendingDataJob?.cancel()
         gettingIncidentsJob?.cancel()
         gettingInfoJob?.cancel()
-        endTrip()
         val sharedPreferences = getSharedPreferences("vehicleIsSelected", Context.MODE_PRIVATE)
         val editor = sharedPreferences.edit()
         editor.clear()
@@ -660,10 +665,10 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback, SensorEventListene
         vibrator.vibrate(VibrationEffect.createOneShot(1000, VibrationEffect.DEFAULT_AMPLITUDE))
         val builder = AlertDialog.Builder(this)
         builder.setTitle("¡Terminaste la ruta!")
-            .setMessage("Haz llegado a la ruta, gracias por viajar con Nintrip :)")
+            .setMessage("Haz llegado a la ruta, gracias por conducir con Nintrip :)")
             .setPositiveButton("OK") { dialog, _ ->
+                endTrip()
                 dialog.dismiss()
-                leaveVehicle()
             }
             .setCancelable(false)
         builder.create().show()
@@ -680,6 +685,7 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback, SensorEventListene
                 if (responseBody != null) {
                     when (responseBody.error) {
                         0 -> {
+                            finish()
                         }
 
                         1 -> {
@@ -711,30 +717,6 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback, SensorEventListene
 
     }
 
-    private fun alertUserForFinalDestination() {
-        // Hacer vibrar el dispositivo
-        val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-        vibrator.vibrate(
-            VibrationEffect.createOneShot(
-                1000,
-                VibrationEffect.DEFAULT_AMPLITUDE
-            )
-        )
-
-        // Reproducir sonido de alerta
-//        val mediaPlayer = MediaPlayer.create(this, R.raw.alert_sound) // Asegúrate de tener el archivo en res/raw
-//        mediaPlayer.start()
-
-        val builder = AlertDialog.Builder(this)
-        builder.setTitle("¡Última estación!")
-            .setMessage("La siguiente estación es tu destino.")
-            .setPositiveButton("Okay") { dialog, _ ->
-                dialog.dismiss()
-            }
-            .setCancelable(false)
-        builder.create().show()
-    }
-
 
     private fun stopLocationUpdates() {
         if (!isLocationUpdatesActive) return
@@ -757,70 +739,6 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback, SensorEventListene
 
 
     private fun latLangToStr(latLng: LatLng) = "${latLng.latitude},${latLng.longitude}"
-
-
-    private fun getDirectionsAndShowOnMap(origin: BusStop, destination: BusStop) {
-        val apiKey = getString(R.string.api_key)
-        val waypointsStr = destination.waypoints ?: ""
-        val originLocation = latLangToStr(LatLng(origin.latitude, origin.longitude))
-        val destinationLocation = latLangToStr(LatLng(destination.latitude, destination.longitude))
-
-        val language = "es"
-
-        val call = directionsAPI.getDirections(
-            originLocation,
-            destinationLocation,
-            apiKey,
-            "driving",
-            waypoints = waypointsStr,
-            language = language
-        )
-
-        call.enqueue(object : Callback<DirectionsResponse> {
-            override fun onResponse(
-                call: Call<DirectionsResponse>,
-                response: Response<DirectionsResponse>
-            ) {
-                if (response.isSuccessful) {
-                    val directionsResponse = response.body()
-                    val legs = directionsResponse?.routes?.get(0)?.legs
-
-                    if (!legs.isNullOrEmpty()) {
-                        val steps = legs[0].steps
-                        displayDirections(steps)
-                    } else {
-                        Log.e("DirectionsError", "No legs found in response")
-                    }
-                } else {
-                    Log.e(
-                        "DirectionsError",
-                        "Response error: ${response.code()} - ${response.message()}"
-                    )
-                }
-            }
-
-            override fun onFailure(call: Call<DirectionsResponse>, t: Throwable) {
-                Log.e("DirectionsError", "Failed to get directions: ${t.message}")
-            }
-        })
-    }
-
-    private fun displayDirections(steps: List<Step>) {
-        val instructionsList = StringBuilder()
-
-        for (step in steps) {
-            val distance = step.distance.text
-            val htmlInstruction = step.html_instructions
-            val instruction = Html.fromHtml(htmlInstruction, Html.FROM_HTML_MODE_LEGACY).toString()
-            instructionsList.append("$instruction - $distance\n")
-        }
-        showInstructionsDialog(instructionsList.toString())
-    }
-
-    private fun showInstructionsDialog(instructions: String) {
-        val textViewInst = findViewById<TextView>(R.id.instrucctions)
-        textViewInst.text = instructions
-    }
 
     private fun updateCameraPosition() {
         if (!::mMap.isInitialized) {
@@ -869,7 +787,6 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback, SensorEventListene
             Log.e("AlertDialog", "No se puede mostrar el diálogo: la actividad no está activa.")
         }
     }
-
 
     private fun startSendingDataPeriodically() {
         sendingDataJob?.cancel()
