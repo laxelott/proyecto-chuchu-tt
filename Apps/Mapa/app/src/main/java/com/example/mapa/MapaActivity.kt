@@ -87,7 +87,7 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback, SensorEventListene
     private lateinit var background: LinearLayout
     private val polylines: MutableList<Polyline> = mutableListOf()
     private var isLocationUpdatesActive = false
-    private var speed:Float = 0.0F
+    private var speed: Float = 0.0F
     private val locationCallback = object : LocationCallback() {
         override fun onLocationResult(locationResult: LocationResult) {
             locationResult.locations.forEach { location ->
@@ -138,7 +138,7 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback, SensorEventListene
     private var rotationVectorSensor: Sensor? = null
     private var azimuth: Float = 0.0f
     private var lastAzimuth: Float = 0.0f
-
+    private var isEnd = false
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -156,7 +156,6 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback, SensorEventListene
 
         // Construct a FusedLocationProviderClient
         fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this)
-        requestPermissionsFlow{}
         btnLocation = findViewById(R.id.location_button)
         btnReportIncident = findViewById(R.id.btn_report_incident)
         btnEndTravel = findViewById(R.id.traveling_container_button)
@@ -164,9 +163,22 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback, SensorEventListene
         progressBar = findViewById(R.id.progress_bar)
         background = findViewById(R.id.ownBackground)
 
+        requestPermissionsFlow { granted ->
+            if (granted) {
+                // Permisos otorgados, ahora sí inicializa el mapa
+                Log.d("Permissions", "Permisos otorgados, inicializando lógica del mapa...")
+                initializeMapLogic()
+            } else {
+                Toast.makeText(
+                    this,
+                    "Permisos de ubicación requeridos para continuar",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         rotationVectorSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
-
 
 
         // Initialize directions API
@@ -257,26 +269,33 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback, SensorEventListene
                 if (busStopsInfo != null) {
                     Log.d("Transport response", "Datos de transporte: $busStopsInfo")
                     busStops = busStopsInfo
-                    runOnUiThread {
-                        val distance = calculateDistance(
-                            LatLng(currentLocation.latitude, currentLocation.longitude),
-                            LatLng(busStops[0].latitude, busStops[0].longitude)
-                        )
-                        Log.d("Distancia", "$distance, $checkRange")
 
-                        if (checkRange && distance >= 30f) {
-                            showAlertDialog(this@MapaActivity)
-                        } else {
-                            setupMapMarkersAndRoutes()
-                            CoroutineScope(Dispatchers.IO).launch {
-                                useVehicle(token, vehicleIdentifier)
+                    // Asegurarnos de que currentLocation esté disponible antes de calcular la distancia
+                    if (currentLocation != null && busStops.isNotEmpty()) {
+                        runOnUiThread {
+                            val distance = calculateDistance(
+                                LatLng(currentLocation.latitude, currentLocation.longitude),
+                                LatLng(busStops[0].latitude, busStops[0].longitude)
+                            )
+                            Log.d("Distancia", "$distance, $checkRange")
+
+                            if (checkRange && distance >= 30f) {
+                                showAlertDialog(this@MapaActivity)
+                            } else {
+                                setupMapMarkersAndRoutes()
+                                CoroutineScope(Dispatchers.IO).launch {
+                                    useVehicle(token, vehicleIdentifier)
+                                }
                             }
                         }
+                    } else {
+                        Log.e("Location", "Ubicación o datos de paradas de autobús no disponibles.")
                     }
                 }
             }
         )
     }
+
 
     private suspend fun checkVehicle(token: String, vehicleIdentifier: String) {
         val service = ApiHelper().prepareApi()
@@ -326,7 +345,8 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback, SensorEventListene
                     when (responseBody.error) {
                         0 -> {
                             CoroutineScope(Dispatchers.Main).launch {
-                                val response = ApiHelper().prepareApi().startTrip(tokenRequest, routeID)
+                                val response =
+                                    ApiHelper().prepareApi().startTrip(tokenRequest, routeID)
                                 if (response.isSuccessful) {
                                     Log.d("API Respose", "$response")
                                     Log.d("API Response", "$tokenRequest, $routeID")
@@ -594,7 +614,8 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback, SensorEventListene
                     if (infoFragment is InfoFragment) {
                         val startTravelFragment = infoFragment
                         startTravelFragment.updateData(waitTime)
-                        if (waitTime.inTerminal == 1) {
+                        if (waitTime.inTerminal == 1 && !isEnd) {
+                            isEnd = true
                             endTravel()
                         }
                     }
@@ -609,6 +630,74 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback, SensorEventListene
         val tokenRequest = TokenRequest(token)
         ApiHelper().getDataFromDB(
             serviceCall = { service.leaveVehicle(tokenRequest) },
+            processResponse = { response ->
+                val responseBody = response.body()
+                Log.d("LeaveVehicle", "$responseBody")
+                if (responseBody != null) {
+                    when (responseBody.error) {
+                        0 -> {
+                            finish()
+                        }
+
+                        1 -> {
+                            val builder = AlertDialog.Builder(this)
+                            builder.setTitle("¡Error!")
+                                .setMessage("Consulta al administrador")
+                                .setPositiveButton("OK") { dialog, _ ->
+                                    dialog.dismiss()
+                                    finish()
+                                }
+                                .setCancelable(false)
+                            builder.create().show()
+                        }
+
+                        2 -> {
+                            finish()
+                        }
+                    }
+                }
+            }
+        )
+    }
+
+
+    private fun endTravel() {
+        sendingDataJob?.cancel()
+        gettingIncidentsJob?.cancel()
+        gettingInfoJob?.cancel()
+        val sharedPreferences = getSharedPreferences("vehicleIsSelected", Context.MODE_PRIVATE)
+        val editor = sharedPreferences.edit()
+        editor.clear()
+        editor.apply()
+
+        val cameraPosition = CameraPosition.Builder()
+            .target(currentLocation)
+            .zoom(16f)
+            .bearing(0f)
+            .tilt(0f)
+            .build()
+
+        mMap.animateCamera(CameraUpdateFactory.newCameraPosition(cameraPosition))
+        stopLocationUpdates()
+
+        val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+        vibrator.vibrate(VibrationEffect.createOneShot(1000, VibrationEffect.DEFAULT_AMPLITUDE))
+        val builder = AlertDialog.Builder(this)
+        builder.setTitle("¡Terminaste la ruta!")
+            .setMessage("Haz llegado a la ruta, gracias por conducir con Nintrip :)")
+            .setPositiveButton("OK") { dialog, _ ->
+                endTrip()
+                dialog.dismiss()
+            }
+            .setCancelable(false)
+        builder.create().show()
+    }
+
+    private fun endTrip() {
+        val service = ApiHelper().prepareApi()
+        val tokenRequest = TokenRequest(token)
+        ApiHelper().getDataFromDB(
+            serviceCall = { service.endTrip(tokenRequest) },
             processResponse = { response ->
                 val responseBody = response.body()
                 Log.d("Response", "$responseBody")
@@ -629,70 +718,7 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback, SensorEventListene
                                 .setCancelable(false)
                             builder.create().show()
                         }
-                    }
-                }
-            }
-        )
-    }
 
-
-    private fun endTravel() {
-        sendingDataJob?.cancel()
-        gettingIncidentsJob?.cancel()
-        gettingInfoJob?.cancel()
-        endTrip()
-        val sharedPreferences = getSharedPreferences("vehicleIsSelected", Context.MODE_PRIVATE)
-        val editor = sharedPreferences.edit()
-        editor.clear()
-        editor.apply()
-
-        val cameraPosition = CameraPosition.Builder()
-            .target(currentLocation)
-            .zoom(16f)
-            .bearing(0f)
-            .tilt(0f)
-            .build()
-
-        mMap.animateCamera(CameraUpdateFactory.newCameraPosition(cameraPosition))
-        stopLocationUpdates()
-
-        val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-        vibrator.vibrate(VibrationEffect.createOneShot(1000, VibrationEffect.DEFAULT_AMPLITUDE))
-        val builder = AlertDialog.Builder(this)
-        builder.setTitle("¡Terminaste la ruta!")
-            .setMessage("Haz llegado a la ruta, gracias por viajar con Nintrip :)")
-            .setPositiveButton("OK") { dialog, _ ->
-                dialog.dismiss()
-                leaveVehicle()
-            }
-            .setCancelable(false)
-        builder.create().show()
-    }
-
-    private fun endTrip() {
-        val service = ApiHelper().prepareApi()
-        val tokenRequest = TokenRequest(token)
-        ApiHelper().getDataFromDB(
-            serviceCall = { service.endTrip(tokenRequest) },
-            processResponse = { response ->
-                val responseBody = response.body()
-                Log.d("Response", "$responseBody")
-                if (responseBody != null) {
-                    when (responseBody.error) {
-                        0 -> {
-                        }
-
-                        1 -> {
-                            val builder = AlertDialog.Builder(this)
-                            builder.setTitle("¡Error!")
-                                .setMessage("Consulta al administrador")
-                                .setPositiveButton("OK") { dialog, _ ->
-                                    dialog.dismiss()
-                                    finish()
-                                }
-                                .setCancelable(false)
-                            builder.create().show()
-                        }
                         2 -> {
                             val builder = AlertDialog.Builder(this)
                             builder.setTitle("¡Error!")
@@ -709,30 +735,6 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback, SensorEventListene
             }
         )
 
-    }
-
-    private fun alertUserForFinalDestination() {
-        // Hacer vibrar el dispositivo
-        val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-        vibrator.vibrate(
-            VibrationEffect.createOneShot(
-                1000,
-                VibrationEffect.DEFAULT_AMPLITUDE
-            )
-        )
-
-        // Reproducir sonido de alerta
-//        val mediaPlayer = MediaPlayer.create(this, R.raw.alert_sound) // Asegúrate de tener el archivo en res/raw
-//        mediaPlayer.start()
-
-        val builder = AlertDialog.Builder(this)
-        builder.setTitle("¡Última estación!")
-            .setMessage("La siguiente estación es tu destino.")
-            .setPositiveButton("Okay") { dialog, _ ->
-                dialog.dismiss()
-            }
-            .setCancelable(false)
-        builder.create().show()
     }
 
 
@@ -757,70 +759,6 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback, SensorEventListene
 
 
     private fun latLangToStr(latLng: LatLng) = "${latLng.latitude},${latLng.longitude}"
-
-
-    private fun getDirectionsAndShowOnMap(origin: BusStop, destination: BusStop) {
-        val apiKey = getString(R.string.api_key)
-        val waypointsStr = destination.waypoints ?: ""
-        val originLocation = latLangToStr(LatLng(origin.latitude, origin.longitude))
-        val destinationLocation = latLangToStr(LatLng(destination.latitude, destination.longitude))
-
-        val language = "es"
-
-        val call = directionsAPI.getDirections(
-            originLocation,
-            destinationLocation,
-            apiKey,
-            "driving",
-            waypoints = waypointsStr,
-            language = language
-        )
-
-        call.enqueue(object : Callback<DirectionsResponse> {
-            override fun onResponse(
-                call: Call<DirectionsResponse>,
-                response: Response<DirectionsResponse>
-            ) {
-                if (response.isSuccessful) {
-                    val directionsResponse = response.body()
-                    val legs = directionsResponse?.routes?.get(0)?.legs
-
-                    if (!legs.isNullOrEmpty()) {
-                        val steps = legs[0].steps
-                        displayDirections(steps)
-                    } else {
-                        Log.e("DirectionsError", "No legs found in response")
-                    }
-                } else {
-                    Log.e(
-                        "DirectionsError",
-                        "Response error: ${response.code()} - ${response.message()}"
-                    )
-                }
-            }
-
-            override fun onFailure(call: Call<DirectionsResponse>, t: Throwable) {
-                Log.e("DirectionsError", "Failed to get directions: ${t.message}")
-            }
-        })
-    }
-
-    private fun displayDirections(steps: List<Step>) {
-        val instructionsList = StringBuilder()
-
-        for (step in steps) {
-            val distance = step.distance.text
-            val htmlInstruction = step.html_instructions
-            val instruction = Html.fromHtml(htmlInstruction, Html.FROM_HTML_MODE_LEGACY).toString()
-            instructionsList.append("$instruction - $distance\n")
-        }
-        showInstructionsDialog(instructionsList.toString())
-    }
-
-    private fun showInstructionsDialog(instructions: String) {
-        val textViewInst = findViewById<TextView>(R.id.instrucctions)
-        textViewInst.text = instructions
-    }
 
     private fun updateCameraPosition() {
         if (!::mMap.isInitialized) {
@@ -849,7 +787,8 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback, SensorEventListene
                     gettingIncidentsJob?.cancel()
                     gettingInfoJob?.cancel()
                     leaveVehicle()
-                    val sharedPreferences = context.getSharedPreferences("vehicleIsSelected", Context.MODE_PRIVATE)
+                    val sharedPreferences =
+                        context.getSharedPreferences("vehicleIsSelected", Context.MODE_PRIVATE)
                     val editor = sharedPreferences.edit()
                     editor.clear()
 
@@ -869,7 +808,6 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback, SensorEventListene
             Log.e("AlertDialog", "No se puede mostrar el diálogo: la actividad no está activa.")
         }
     }
-
 
     private fun startSendingDataPeriodically() {
         sendingDataJob?.cancel()
@@ -1025,39 +963,44 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback, SensorEventListene
      */
     @SuppressLint("PotentialBehaviorOverride")
     override fun onMapReady(googleMap: GoogleMap) {
-        if (!::mMap.isInitialized) {
-            mMap = googleMap
-            setupMap()
-
-            // Establecer lógica inicial
-            requestPermissionsFlow { granted ->
-                if (granted) {
-                    initializeMapLogic()
-                } else {
-                    Toast.makeText(this, "Permisos de ubicación son requeridos", Toast.LENGTH_LONG).show()
-                }
-            }
-
-            // Callback de permisos
-            onPermissionGranted = { initializeMapLogic() }
-        }
+        mMap = googleMap
+        setupMap()
     }
 
     private fun initializeMapLogic() {
         enableLocation()
-        setupLocationButton()
-        setUpIncidentButton()
-        setUpEndTravelButton()
-        setupInfoWindowAdapter()
-        setupMarkerClickListeners()
 
-        mMap.setOnMapLoadedCallback {
-            if (!hasFetchedData) {
-                hasFetchedData = true
-                lifecycleScope.launch {
-                    fetchDataInBackground()
+        // Espera a obtener la ubicación antes de proceder
+        fusedLocationProviderClient.lastLocation.addOnSuccessListener { location ->
+            if (location != null) {
+                lastLocation = location
+                currentLocation = LatLng(location.latitude, location.longitude)
+                updateCameraPosition()
+
+                setupLocationButton()
+                setUpIncidentButton()
+                setUpEndTravelButton()
+                setupInfoWindowAdapter()
+                setupMarkerClickListeners()
+
+                mMap.setOnMapLoadedCallback {
+                    if (!hasFetchedData) {
+                        hasFetchedData = true
+                        lifecycleScope.launch {
+                            fetchDataInBackground()
+                        }
+                    }
                 }
+            } else {
+                Toast.makeText(
+                    this,
+                    "No se pudo obtener la ubicación. Intenta de nuevo.",
+                    Toast.LENGTH_LONG
+                ).show()
             }
+        }.addOnFailureListener {
+            Toast.makeText(this, "Error al obtener la ubicación: ${it.message}", Toast.LENGTH_LONG)
+                .show()
         }
     }
 
@@ -1115,7 +1058,7 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback, SensorEventListene
     @SuppressLint("PotentialBehaviorOverride")
     private fun setupMarkerClickListeners() {
         mMap.setOnMarkerClickListener { marker ->
-            mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(marker.position, 18f))
+            mMap.animateCamera(CameraUpdateFactory.newLatLng(marker.position))
             marker.showInfoWindow()
             true
         }
@@ -1205,9 +1148,12 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback, SensorEventListene
         }
     }
 
-    // Verifica si el permiso de ubicación está concedido
+    // Verifica si el permiso está concedido
     private fun isLocationPermissionGranted(): Boolean {
-        return ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        return ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
     }
 
     // Activa la ubicación en el mapa si el permiso está concedido
@@ -1255,17 +1201,30 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback, SensorEventListene
         )
     }
 
+    // Limpia el estado de la solicitud cuando el usuario acepta o deniega
+    private fun resetPermissionState() {
+        isLocationPermissionRequested = false
+    }
+
     // Manejador del resultado de la solicitud de permisos
     private var onPermissionGranted: (() -> Unit)? = null
 
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+    // Actualizar el manejo del resultado de permisos
+    // En `onRequestPermissionsResult`, inicia el flujo de inicialización si se concede el permiso
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
 
         when (requestCode) {
             REQUEST_CODE_LOCATION -> {
+                isLocationPermissionRequested = true
                 if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                     enableLocation()
                     onPermissionGranted?.invoke()
+                    initializeMapLogic() // Inicia lógica del mapa después de aceptar permisos
                     onPermissionGranted = null
                 } else {
                     showLocationPermissionDeniedDialog()
@@ -1274,7 +1233,6 @@ class MapaActivity : AppCompatActivity(), OnMapReadyCallback, SensorEventListene
             }
         }
     }
-
 
 
 }

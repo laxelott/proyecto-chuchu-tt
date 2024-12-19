@@ -57,8 +57,11 @@ class TransportInformationActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        selectedVehicle = getSharedPreferences("SelectedVehicle", Context.MODE_PRIVATE)
         checkUserSession()
+        setupUI()
         loadDriverInfo()
+        btnStart.isEnabled = false
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -231,20 +234,39 @@ class TransportInformationActivity : AppCompatActivity() {
                 if (infoVehicles != null) {
                     if (infoVehicles[0].error == 1) {
                         showErrorDialog("Usuario deshabilitado, contacte a un administrador")
+                        allDriverInfo = emptyList()
+                        clearUI()
+                        return@getDataFromDB
                     }
                     allDriverInfo = infoVehicles
                     Log.e("driver info", "$allDriverInfo")
                     updateUIWithDriverInfo(allDriverInfo)
                 } else {
                     showErrorDialog("Error al cargar la información del conductor.")
+                    clearUI()
                 }
             }
         )
     }
+    private fun clearUI() {
+        // Limpia el Spinner
+        spinnerBusOptions.adapter = null
+
+        // Limpia los textos
+        titleTransportType.text = ""
+        titleTransportRoute.text = ""
+        titleTransportRoute.setBackgroundColor(Color.TRANSPARENT) // Reinicia el color de fondo
+
+        // Desactiva el botón
+        btnStart.isEnabled = false
+    }
+
 
     private fun updateUIWithDriverInfo(allInfo: List<DriverInfo>) {
-        if (allInfo.isEmpty()) {
+        if (allInfo == null || allInfo.isEmpty()) {
             showErrorDialog("No se encontró información del conductor.")
+            spinnerBusOptions.adapter = null // Limpiamos el Spinner
+            btnStart.isEnabled = false // Deshabilitamos el botón
             return
         }
 
