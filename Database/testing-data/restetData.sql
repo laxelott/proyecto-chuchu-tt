@@ -1,0 +1,2 @@
+USE Chuchu;
+CALL resetData();
