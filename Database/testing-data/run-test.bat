@@ -9,6 +9,7 @@ for /f "delims=" %%A in (../host) do (
 )
 if not defined password if not defined host (
     echo Error: Credential files not found!
+    pause
     exit /b 1
 )
 
