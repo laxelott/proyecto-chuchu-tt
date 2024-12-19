@@ -134,6 +134,7 @@ CREATE TABLE `Last_Location`(
     `idLastStop` int NOT NULL,
     `lat` double NOT NULL,
     `lon` double NOT NULL,
+    `time` DATETIME NOT NULL,
     CONSTRAINT `PK_Last_Location` PRIMARY KEY (`idLocation` ASC),
     CONSTRAINT `FK_Last_Location_Vehicle` FOREIGN KEY (`idVehicle`)
         REFERENCES `Vehicle` (`idVehicle`),
