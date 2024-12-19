@@ -73,4 +73,10 @@ router.post('/stops', (req, res) => {
         .catch((err) => res.status(500).send("ERROR: " + err));
 });
 
+router.post('/resetSystem', (req, res) => {
+    AdminDAO.resetSystem()
+        .then((result) => res.json(result))
+        .catch((err) => res.status(500).send("ERROR: " + err));
+});
+
 export default router;

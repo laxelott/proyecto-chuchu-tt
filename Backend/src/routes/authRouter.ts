@@ -36,11 +36,7 @@ router.post('/loginadmin', function(req, res, next) {
 
     AuthDAO.loginAdmin(username, password)
         .then((result) => {
-            if (result) {
-                res.redirect('/admin_view'); // Redirige al panel de administrador
-            } else {
-                res.send("Error en la autenticación");
-            }
+            res.send(result);
         })
         .catch((err) => { 
             res.send("ERROR: " + err); 

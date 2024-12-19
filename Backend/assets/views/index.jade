@@ -8,6 +8,19 @@ html(lang='en')
     link(rel='preconnect', href='https://fonts.gstatic.com', crossorigin)
     link(href='https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap', rel='stylesheet')
     title Inicio
+    script(src='https://code.jquery.com/jquery-3.6.0.min.js')
+    script.
+      document.addEventListener('DOMContentLoaded', function() {
+        document.querySelector('#btnReset').addEventListener('click', () => {
+          $.post('/api/admin/resetSystem', { }, function(response) {
+                if (response.error == 0) {
+                    alert("Sistema reseteado!");
+                } else {
+                    alert("Error!");
+                }
+            });
+        });
+      });
   body
     header
       .logo
@@ -28,6 +41,7 @@ html(lang='en')
           h1.green en la palma de tu mano
           br
           span Toda la información del transporte público de la CDMX a tu alcance
+          input(type="button", value="Resetear sistema", id="btnReset")ut
         div
           img(src='../images/home.png', alt='Home image')
       article.what-to-do

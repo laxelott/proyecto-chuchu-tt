@@ -1,55 +1,55 @@
 doctype html
 html(lang='en')
-  head
-    meta(charset='UTF-8')
-    meta(name='viewport', content='width=device-width, initial-scale=1.0')
-    link(rel='stylesheet', href='../stylesheets/login.css')
-    link(rel='preconnect', href='https://fonts.googleapis.com')
-    link(rel='preconnect', href='https://fonts.gstatic.com', crossorigin)
-    link(href='https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap', rel='stylesheet')
-    title Admin Login
-  body
-    header
-      .logo
-        img(src='../icons/location.svg', alt='Logo')
-        span Nintrip
-      .nav
-        a(href='/') Inicio
-        a(href='./pasajero') Pasajero
-        a(href='./conductor') Conductor
-        a.button-login(href='./login')
-          p Inicio de sesión
-          img(src='../icons/Vector.svg', alt='Flecha')
-    section
-      article
-        h1 Bienvenido, Administrador
-        //-form(method='post', action='/api/auth/loginadmin')
-        form#adminLoginForm
-          label(for='username') Nombre de usuario
-          input#username(type='text', name='username', placeholder='Ingresa tu nombre de usuario')
-          label(for='password') Contraseña
-          input#password(type='password', name='password', placeholder='Ingresa tu contraseña')
-          button(type='submit') Iniciar sesión
-    
-    script(src='https://code.jquery.com/jquery-3.6.0.min.js')
-    script.
-      $(document).ready(function() {
-        $('#adminLoginForm').submit(function(e) {
-          e.preventDefault();
-          
-          const username = $('#username').val();
-          const password = $('#password').val();
+    head
+        meta(charset='UTF-8')
+        meta(name='viewport', content='width=device-width, initial-scale=1.0')
+        link(rel='stylesheet', href='../stylesheets/login.css')
+        link(rel='preconnect', href='https://fonts.googleapis.com')
+        link(rel='preconnect', href='https://fonts.gstatic.com', crossorigin)
+        link(href='https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap', rel='stylesheet')
+        title Admin Login
+    body
+        header
+            .logo
+                img(src='../icons/location.svg', alt='Logo')
+                span Nintrip
+            .nav
+                a(href='/') Inicio
+                a(href='./pasajero') Pasajero
+                a(href='./conductor') Conductor
+                a.button-login(href='./login')
+                    p Inicio de sesión
+                    img(src='../icons/Vector.svg', alt='Flecha')
+        section
+            article
+                h1 Bienvenido, Administrador
+                //-form(method='post', action='/api/auth/loginadmin')
+                form#adminLoginForm
+                    label(for='username') Nombre de usuario
+                    input#username(type='text', name='username', placeholder='Ingresa tu nombre de usuario')
+                    label(for='password') Contraseña
+                    input#password(type='password', name='password', placeholder='Ingresa tu contraseña')
+                    button(type='submit') Iniciar sesión
+        
+        script(src='https://code.jquery.com/jquery-3.6.0.min.js')
+        script.
+            $(document).ready(function() {
+                $('#adminLoginForm').submit(function(e) {
+                    e.preventDefault();
+                    
+                    const username = $('#username').val();
+                    const password = $('#password').val();
 
-          $.post('/api/auth/loginadmin', { username, password }, function(response) {
-            if (response.token) {
-              // Almacenar el token en localStorage
-              localStorage.setItem('adminToken', response.token);
-              
-              // Redireccionar al panel de administrador
-              // window.location.href = '/admin_view';
-            } else {
-              alert("Error en la autenticación");
-            }
-          });
-        });
-      });
+                    $.post('/api/auth/loginadmin', { username, password }, function(response) {
+                        if (response.token) {
+                            // Almacenar el token en localStorage
+                            localStorage.setItem('adminToken', response.token);
+                            
+                            // Redireccionar al panel de administrador
+                            window.location.href = '/admin_view';
+                        } else {
+                            alert("Error en la autenticación");
+                        }
+                    });
+                });
+            });

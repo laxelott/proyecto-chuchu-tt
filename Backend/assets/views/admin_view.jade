@@ -14,38 +14,65 @@ html(lang='en')
       $(document).ready(function() {
         // Función para obtener datos y llenar tablas
         function loadData() {
-          const endpoints = {
-            transports: '/api/admin/transports',
-            routes: '/api/admin/routes',
-            vehicles: '/api/admin/vehicles',
-            drivers: '/api/admin/drivers',
-            stops: '/api/admin/stops'
-          };
+            const endpoints = {
+                transports: '/api/admin/transports',
+                routes: '/api/admin/routes',
+                vehicles: '/api/admin/vehicles',
+                drivers: '/api/admin/drivers',
+                stops: '/api/admin/stops'
+            };
+            const dataTables = {
+                transports: {
+                    'columns': []
+                    'columnDefs': [
+                        'render': function(data, type, row) {
+                            return ;
+                        }, targets: [2]
+                        'render': function(data, type, row) {
+                            return `<button class="delete" data-id="${item.id}">Borrar</button>`
+                        }, targets: [3]
+                    ]
+                },
+                routes: {},
+                vehicles: {},
+                drivers: {}
+            }
 
-          // Obtener datos y poblar cada tabla
-          Object.entries(endpoints).forEach(([tableId, endpoint]) => {
-            $.get(endpoint, function(data) {
-              const tableBody = $(`#${tableId}Table tbody`);
-              tableBody.empty(); // Limpiar contenido actual
-              data.forEach(item => {
-                // Crear filas dinámicamente para cada tabla
-                const row = `<tr>
-                  ${Object.values(item).map(value => `<td>${value}</td>`).join('')}
-                  <td><button class="delete" data-id="${item.id}">Borrar</button></td>
-                </tr>`;
-                tableBody.append(row);
-              });
-            }).fail(function() {
-              console.error(`Error loading data for ${tableId}`);
+            // Obtener datos y poblar cada tabla
+            Object.entries(endpoints).forEach(([tableId, endpoint]) => {
+                $.get(endpoint, function(data) {
+                const tableBody = $(`#${tableId}Table tbody`);
+                
+
+                tableBody.empty(); // Limpiar contenido actual
+                $('')
+                
+                
+                data.forEach(item => {
+
+
+                    // Crear filas dinámicamente para cada tabla
+                    const row = `<tr>
+                    ${Object.values(item).map(value => `<td>${value}</td>`).join('')}
+                    <td></td>
+                    </tr>`;
+                    tableBody.append(row);
+                });
+                }).fail(function() {
+                console.error(`Error loading data for ${tableId}`);
+                });
             });
-          });
         }
 
         // Llamar a la función de carga de datos al iniciar la página
         loadData();
 
         // Inicializar DataTables
-        $('#transportsTable, #routesTable, #vehiclesTable, #driversTable, #stopsTable').DataTable();
+        $('#routesTable').DataTable();
+        $('#vehiclesTable').DataTable();
+        $('#driversTable').DataTable();
+        $('#stopsTable').DataTable();
+        $('#transportsTable').DataTable()
 
         // Lógica para manejar el envío de formularios y recargar la tabla correspondiente
         ['Transport', 'Route', 'Vehicle', 'Driver', 'Stop'].forEach(formType => {

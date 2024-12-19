@@ -7,5 +7,7 @@
 			"path": "Database"
 		}
 	],
-    "settings": {}
+    "settings": {
+        "liveServer.settings.multiRootWorkspaceName": "Backend"
+    }
 }

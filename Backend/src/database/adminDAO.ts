@@ -1,6 +1,10 @@
 import SQLPool from './conn/databaseConnection.js';
 
 export class AdminDAO {
+    static async resetSystem() {
+        await SQLPool.query("CALL resetData()");
+        return {error: 0}
+    }
     // Transporte
     static async getTransportsAdmin() {
         const results = await SQLPool.query("CALL getTransportsAdmin()");
